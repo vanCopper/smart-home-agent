@@ -1,0 +1,55 @@
+/* ────────────────────────────────────────────
+   Reset + 全局基础样式 + 通用动画
+   ──────────────────────────────────────────── */
+*,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
+
+html,body{
+  width:100%; height:100%; overflow:hidden;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+}
+
+/* iPad Safari 下禁用默认 tap highlight */
+*{ -webkit-tap-highlight-color: transparent; }
+
+/* ── 路由切换动画：只显示 active 的页面 ── */
+.route{ width:100%; height:100%; display:none; }
+.route.active{ display:block; animation: route-in .35s ease both; }
+@keyframes route-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+/* ── 卡片通用 ── */
+.c{
+  background: var(--card);
+  border: 1px solid var(--card-b);
+  border-radius: var(--r);
+  padding: 16px 18px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: card-in .45s ease both;
+}
+@keyframes card-in{ from{ opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+/* ── 卡片标签 (Environment 环境 / Devices 设备 …) ── */
+.cl{
+  font-size:10px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.1em;
+  color: var(--fg3);
+  margin-bottom: 12px;
+  display:flex; align-items:center; gap:6px;
+}
+.cl-dot{ width:5px; height:5px; border-radius:50%; }
+
+/* ── 通用呼吸/脉冲动画 ── */
+@keyframes pulse-soft { 0%,100%{ opacity:1 } 50%{ opacity:.3 } }
+@keyframes breathe    { 0%,100%{ opacity:1; transform:scale(1) } 50%{ opacity:.4; transform:scale(.8) } }
+
+/* ── 可交互卡片按下态 ── */
+.tap{ cursor:pointer; transition: background .15s, transform .1s; }
+.tap:active{ transform: scale(.96); }
+
+/* ── 滚动条隐藏 (iPad 全屏下不希望看到) ── */
+.no-scrollbar{ scrollbar-width:none; }
+.no-scrollbar::-webkit-scrollbar{ display:none; }

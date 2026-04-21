@@ -1,0 +1,46 @@
+/* ────────────────────────────────────────────
+   Design tokens — 配色跟随系统 light/dark 自动切换
+   ──────────────────────────────────────────── */
+:root{
+  --bg:#f6f5f2;  --bg2:#eeedea;  --bg3:#e5e4e0;
+  --fg:#1a1918;  --fg2:#6b6a66;  --fg3:#a3a29d;
+
+  --card:   rgba(255,255,255,.92);
+  --card-b: rgba(0,0,0,.05);
+
+  --blue:#2563eb;  --blue-bg:rgba(37,99,235,.07);   --blue-fg:#1d4ed8;
+  --green:#16a34a; --green-bg:rgba(22,163,74,.08);  --green-fg:#15803d;
+  --amber:#d97706; --amber-bg:rgba(217,119,6,.08);  --amber-fg:#b45309;
+  --red:#dc2626;   --red-bg:rgba(220,38,38,.06);    --red-fg:#b91c1c;
+  --teal:#0d9488;  --teal-bg:rgba(13,148,136,.07);  --teal-fg:#0f766e;
+  --coral:#e85d30; --coral-bg:rgba(232,93,48,.07);  --coral-fg:#c2410c;
+  --purple:#7c3aed;--purple-bg:rgba(124,58,237,.07);--purple-fg:#6d28d9;
+
+  /* 成员色 (wife 以外都复用上面的) */
+  --wife:    #d4537e;
+  --wife-bg: rgba(212,83,126,.1);
+
+  --r:  14px;  /* 卡片圆角 */
+  --rs: 10px;  /* 内部块圆角 */
+
+  --font: 'DM Sans','Noto Sans SC',system-ui,sans-serif;
+  --mono: 'DM Mono',ui-monospace,monospace;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#111110;  --bg2:#1c1b19;  --bg3:#2a2926;
+    --fg:#ebe9e2;  --fg2:#a8a79e;  --fg3:#6e6d68;
+
+    --card:   rgba(32,31,28,.85);
+    --card-b: rgba(255,255,255,.06);
+
+    --blue:#60a5fa;  --blue-bg:rgba(96,165,250,.1);  --blue-fg:#93bbfd;
+    --green:#4ade80; --green-bg:rgba(74,222,128,.08);--green-fg:#86efac;
+    --amber:#fbbf24; --amber-bg:rgba(251,191,36,.08);--amber-fg:#fcd34d;
+    --red:#f87171;   --red-bg:rgba(248,113,113,.08); --red-fg:#fca5a5;
+    --teal:#2dd4bf;  --teal-bg:rgba(45,212,191,.08); --teal-fg:#5eead4;
+    --coral:#f0997b; --coral-bg:rgba(240,153,123,.08);--coral-fg:#f5c4b3;
+    --purple:#a78bfa;--purple-bg:rgba(167,139,250,.08);--purple-fg:#c4b5fd;
+  }
+}

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Home Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f6f5f2;--bg2:#eeedea;--bg3:#e5e4e0;
+  --fg:#1a1918;--fg2:#6b6a66;--fg3:#a3a29d;
+  --card:rgba(255,255,255,.92);--card-b:rgba(0,0,0,.05);
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.07);--blue-fg:#1d4ed8;
+  --green:#16a34a;--green-bg:rgba(22,163,74,.08);--green-fg:#15803d;
+  --amber:#d97706;--amber-bg:rgba(217,119,6,.08);--amber-fg:#b45309;
+  --red:#dc2626;--red-bg:rgba(220,38,38,.06);
+  --teal:#0d9488;--teal-bg:rgba(13,148,136,.07);--teal-fg:#0f766e;
+  --coral:#e85d30;--coral-bg:rgba(232,93,48,.07);--coral-fg:#c2410c;
+  --r:14px;--rs:10px;
+  --font:'DM Sans','Noto Sans SC',system-ui,sans-serif;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111110;--bg2:#1c1b19;--bg3:#2a2926;
+  --fg:#ebe9e2;--fg2:#a8a79e;--fg3:#6e6d68;
+  --card:rgba(32,31,28,.85);--card-b:rgba(255,255,255,.06);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.1);--blue-fg:#93bbfd;
+  --green:#4ade80;--green-bg:rgba(74,222,128,.08);--green-fg:#86efac;
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,.08);--amber-fg:#fcd34d;
+  --red:#f87171;--red-bg:rgba(248,113,113,.08);
+  --teal:#2dd4bf;--teal-bg:rgba(45,212,191,.08);--teal-fg:#5eead4;
+  --coral:#f0997b;--coral-bg:rgba(240,153,123,.08);--coral-fg:#f5c4b3;
+}}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+
+.hub{
+  width:100%;height:100%;padding:16px;
+  display:grid;
+  grid-template-columns:280px 1fr 1fr 280px;
+  grid-template-rows:1fr 1fr auto;
+  gap:12px;
+}
+
+.c{
+  background:var(--card);border:1px solid var(--card-b);
+  border-radius:var(--r);padding:16px 18px;
+  display:flex;flex-direction:column;overflow:hidden;
+  animation:ci .45s ease both;
+}
+.c:nth-child(2){animation-delay:.03s}.c:nth-child(3){animation-delay:.06s}
+.c:nth-child(4){animation-delay:.09s}.c:nth-child(5){animation-delay:.12s}
+.c:nth-child(6){animation-delay:.15s}.c:nth-child(7){animation-delay:.18s}
+@keyframes ci{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.cl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.cl-dot{width:5px;height:5px;border-radius:50%}
+
+/* ═══ Clock & Weather (top-left, span 2 rows) ═══ */
+.clock-card{grid-column:1;grid-row:1/3;justify-content:center;align-items:center;text-align:center;gap:4px}
+.time{font-size:72px;font-weight:200;letter-spacing:-3px;line-height:1}
+.time-sec{font-size:28px;font-weight:200;color:var(--fg3);vertical-align:super;margin-left:2px}
+.date-line{font-size:14px;color:var(--fg2);margin-top:4px;font-weight:400}
+.weather-block{margin-top:20px;padding-top:16px;border-top:1px solid var(--card-b);width:100%;text-align:left}
+.w-main{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.w-temp{font-size:42px;font-weight:300;letter-spacing:-1px;color:var(--coral)}
+.w-desc{font-size:13px;color:var(--fg2);line-height:1.5}
+.w-range{font-size:12px;color:var(--fg3)}
+.w-detail{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.w-item{background:var(--bg2);border-radius:var(--rs);padding:10px 12px}
+.w-item-label{font-size:10px;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em}
+.w-item-val{font-size:18px;font-weight:500;margin-top:2px}
+
+/* ═══ Environment (top, col 2) ═══ */
+.env-card{grid-column:2;grid-row:1}
+.env-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1}
+.env-box{
+  border-radius:var(--rs);padding:14px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.env-box.t{background:var(--blue-bg)}.env-box.h{background:var(--teal-bg)}
+.env-box.o{background:var(--coral-bg)}.env-box.a{background:var(--green-bg)}
+.env-label{font-size:11px;color:var(--fg2)}
+.env-val{font-size:30px;font-weight:500;letter-spacing:-1px;margin-top:4px}
+.env-box.t .env-val{color:var(--blue-fg)}
+.env-box.h .env-val{color:var(--teal-fg)}
+.env-box.o .env-val{color:var(--coral-fg)}
+.env-box.a .env-val{color:var(--green-fg)}
+.env-unit{font-size:14px;font-weight:400;color:var(--fg3)}
+
+/* ═══ Devices (top, col 3) ═══ */
+.dev-card{grid-column:3;grid-row:1}
+.dev-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;flex:1}
+.dev{
+  border-radius:var(--rs);padding:12px;
+  display:flex;flex-direction:column;gap:4px;
+  cursor:pointer;transition:background .15s,transform .1s;position:relative;
+}
+.dev:active{transform:scale(.96)}
+.dev.on{background:var(--green-bg)}
+.dev.off{background:var(--bg2)}
+.dev.warn{background:var(--amber-bg)}
+.dev-dot{width:6px;height:6px;border-radius:50%;margin-bottom:4px}
+.dev.on .dev-dot{background:var(--green)}
+.dev.off .dev-dot{background:var(--fg3);opacity:.25}
+.dev.warn .dev-dot{background:var(--amber);animation:pls 2s infinite}
+@keyframes pls{0%,100%{opacity:1}50%{opacity:.3}}
+.dev-name{font-size:11px;color:var(--fg2);line-height:1.3}
+.dev-stat{font-size:13px;font-weight:500;line-height:1.3}
+.dev.on .dev-stat{color:var(--green-fg)}
+.dev.off .dev-stat{color:var(--fg3)}
+.dev.warn .dev-stat{color:var(--amber-fg)}
+
+/* ═══ Schedule (top-right, span 2 rows) ═══ */
+.sched-card{grid-column:4;grid-row:1/3}
+.sched-list{display:flex;flex-direction:column;gap:8px;flex:1}
+.si{display:flex;gap:10px;padding:10px 12px;border-radius:var(--rs);background:var(--bg2)}
+.si-time{font-size:20px;font-weight:500;letter-spacing:-.5px;min-width:52px;flex-shrink:0;line-height:1.2}
+.si-time.now{color:var(--blue-fg)}
+.si-body{flex:1;min-width:0}
+.si-title{font-size:13px;font-weight:500;line-height:1.3}
+.si-meta{font-size:11px;color:var(--fg3);margin-top:2px}
+.si-who{
+  display:inline-block;font-size:10px;font-weight:600;
+  padding:2px 8px;border-radius:20px;margin-top:4px;
+}
+.si-who.me{background:var(--blue-bg);color:var(--blue-fg)}
+.si-who.wife{background:rgba(212,83,126,.1);color:#d4537e}
+.si-who.home{background:var(--green-bg);color:var(--green-fg)}
+.si-who.kid{background:var(--amber-bg);color:var(--amber-fg)}
+.sched-tomorrow{margin-top:auto;padding-top:10px;border-top:1px solid var(--card-b);font-size:11px;color:var(--fg3)}
+.sched-tomorrow strong{color:var(--fg2);font-weight:500}
+
+/* ═══ Camera (bottom, col 2) ═══ */
+.cam-card{grid-column:2;grid-row:2}
+.cam-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1}
+.cam{
+  border-radius:var(--rs);background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;min-height:0;
+}
+.cam-tag{
+  position:absolute;bottom:8px;left:8px;
+  font-size:10px;font-weight:500;color:var(--fg);
+  background:var(--card);padding:3px 10px;border-radius:20px;
+  border:1px solid var(--card-b);
+}
+.cam-live{
+  position:absolute;top:8px;right:8px;
+  display:flex;align-items:center;gap:4px;
+  font-size:9px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.06em;
+}
+.cam-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--red);animation:pls 1.5s infinite}
+.cam-placeholder{font-size:32px;color:var(--fg3);opacity:.15;font-weight:200}
+
+/* ═══ Quick Actions (bottom, col 3) ═══ */
+.action-card{grid-column:3;grid-row:2}
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1}
+.act{
+  border-radius:var(--rs);padding:14px;
+  background:var(--bg2);cursor:pointer;
+  display:flex;flex-direction:column;justify-content:space-between;
+  transition:background .15s,transform .1s;
+}
+.act:active{transform:scale(.96)}
+.act:hover{background:var(--bg3)}
+.act-icon{font-size:22px;margin-bottom:8px}
+.act-name{font-size:13px;font-weight:500;line-height:1.3}
+.act-desc{font-size:11px;color:var(--fg3);margin-top:2px}
+
+/* ═══ Bottom bar ═══ */
+.bar{
+  grid-column:1/-1;grid-row:3;
+  display:flex;align-items:center;gap:12px;
+  padding:10px 18px;
+  background:var(--card);border:1px solid var(--card-b);
+  border-radius:var(--r);
+  animation:ci .5s ease both;animation-delay:.22s;
+}
+.bar-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;
+  animation:br 3s ease-in-out infinite;
+}
+@keyframes br{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.bar-text{font-size:12px;color:var(--fg2);flex:1}
+.bar-text b{font-weight:500;color:var(--fg)}
+.bar-right{display:flex;align-items:center;gap:16px;font-size:11px;color:var(--fg3)}
+.bar-tag{display:flex;align-items:center;gap:5px}
+.bar-tag::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--green)}
+.bar-energy{display:flex;align-items:center;gap:5px}
+
+/* ═══ Dialog ═══ */
+.dlg{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .35s;
+}
+.dlg.on{opacity:1;pointer-events:auto}
+.dlg-box{width:500px;text-align:center;transform:translateY(16px);transition:transform .35s}
+.dlg.on .dlg-box{transform:none}
+.dlg-ring{
+  width:88px;height:88px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.3);
+  margin:0 auto 24px;display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.dlg-ring::before{
+  content:'';position:absolute;inset:-10px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.1);
+  animation:rp 2s ease-out infinite;
+}
+@keyframes rp{0%{transform:scale(1);opacity:.3}100%{transform:scale(1.35);opacity:0}}
+.dlg-core{width:36px;height:36px;border-radius:50%;background:var(--blue);animation:br 1.5s ease-in-out infinite}
+.dlg-said{font-size:20px;font-weight:500;color:rgba(255,255,255,.95);margin-bottom:8px}
+.dlg-reply{font-size:15px;color:rgba(255,255,255,.5);line-height:1.5}
+.dlg-tap{margin-top:28px;font-size:12px;color:rgba(255,255,255,.2);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="hub">
+
+  <!-- Clock & Weather -->
+  <div class="c clock-card">
+    <div class="time" id="clock">15<span style="animation:pls 2s infinite;display:inline-block">:</span>42<span class="time-sec" id="sec">28</span></div>
+    <div class="date-line" id="dateLine">Tuesday, Apr 21, 2026</div>
+    <div class="weather-block">
+      <div class="w-main">
+        <div class="w-temp">31°</div>
+        <div>
+          <div class="w-desc">多云转晴<br>Partly Cloudy</div>
+          <div class="w-range">28° / 33° · Singapore</div>
+        </div>
+      </div>
+      <div class="w-detail">
+        <div class="w-item">
+          <div class="w-item-label">UV 紫外线</div>
+          <div class="w-item-val" style="color:var(--amber-fg)">6 High</div>
+        </div>
+        <div class="w-item">
+          <div class="w-item-label">Wind 风速</div>
+          <div class="w-item-val" style="color:var(--teal-fg)">12 km/h</div>
+        </div>
+        <div class="w-item">
+          <div class="w-item-label">Rain 降雨</div>
+          <div class="w-item-val" style="color:var(--blue-fg)">20%</div>
+        </div>
+        <div class="w-item">
+          <div class="w-item-label">日落 Sunset</div>
+          <div class="w-item-val" style="color:var(--coral-fg)">19:08</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Environment -->
+  <div class="c env-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--teal)"></span>Environment 环境</div>
+    <div class="env-grid">
+      <div class="env-box t">
+        <div class="env-label">室内 Indoor</div>
+        <div class="env-val">26°<span class="env-unit">C</span></div>
+      </div>
+      <div class="env-box h">
+        <div class="env-label">湿度 Humidity</div>
+        <div class="env-val">62<span class="env-unit">%</span></div>
+      </div>
+      <div class="env-box o">
+        <div class="env-label">室外 Outdoor</div>
+        <div class="env-val">31°<span class="env-unit">C</span></div>
+      </div>
+      <div class="env-box a">
+        <div class="env-label">AQI 空气</div>
+        <div class="env-val">42 <span class="env-unit">Good</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Devices -->
+  <div class="c dev-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--green)"></span>Devices 设备</div>
+    <div class="dev-grid">
+      <div class="dev on" onclick="tgl(this)"><div class="dev-dot"></div><div class="dev-name">客厅空调</div><div class="dev-stat">制冷 26°C</div></div>
+      <div class="dev off" onclick="tgl(this)"><div class="dev-dot"></div><div class="dev-name">客厅电视</div><div class="dev-stat">Off</div></div>
+      <div class="dev on" onclick="tgl(this)"><div class="dev-dot"></div><div class="dev-name">卧室灯</div><div class="dev-stat">暖光 60%</div></div>
+      <div class="dev warn"><div class="dev-dot"></div><div class="dev-name">净水器</div><div class="dev-stat">滤芯待换</div></div>
+      <div class="dev off" onclick="tgl(this)"><div class="dev-dot"></div><div class="dev-name">书房灯</div><div class="dev-stat">Off</div></div>
+      <div class="dev on" onclick="tgl(this)"><div class="dev-dot"></div><div class="dev-name">扫地机器人</div><div class="dev-stat">清扫 43%</div></div>
+    </div>
+  </div>
+
+  <!-- Schedule -->
+  <div class="c sched-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--blue)"></span>Schedule 日程</div>
+    <div class="sched-list">
+      <div class="si">
+        <div class="si-time now">16:00</div>
+        <div class="si-body">
+          <div class="si-title">项目评审会</div>
+          <div class="si-meta">腾讯会议 · 45 min</div>
+          <span class="si-who me">我</span>
+        </div>
+      </div>
+      <div class="si">
+        <div class="si-time">17:30</div>
+        <div class="si-body">
+          <div class="si-title">接孩子放学</div>
+          <div class="si-meta">预计 18:00 到家</div>
+          <span class="si-who wife">她</span>
+        </div>
+      </div>
+      <div class="si">
+        <div class="si-time">18:30</div>
+        <div class="si-body">
+          <div class="si-title">钢琴课 Piano</div>
+          <div class="si-meta">线上 · 40 min</div>
+          <span class="si-who kid">宝</span>
+        </div>
+      </div>
+      <div class="si">
+        <div class="si-time">19:00</div>
+        <div class="si-body">
+          <div class="si-title">快递到达</div>
+          <div class="si-meta">京东 · 净水器滤芯</div>
+          <span class="si-who home">家</span>
+        </div>
+      </div>
+      <div class="si">
+        <div class="si-time">20:00</div>
+        <div class="si-body">
+          <div class="si-title">家庭电影之夜</div>
+          <div class="si-meta">客厅 · 已选片</div>
+          <span class="si-who home">家</span>
+        </div>
+      </div>
+    </div>
+    <div class="sched-tomorrow">Tomorrow · <strong>3 events</strong> · 明天有 3 个日程</div>
+  </div>
+
+  <!-- Camera -->
+  <div class="c cam-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--red)"></span>Camera 摄像头</div>
+    <div class="cam-grid">
+      <div class="cam">
+        <div class="cam-live">Live</div>
+        <div class="cam-placeholder">1</div>
+        <div class="cam-tag">门口 Entrance</div>
+      </div>
+      <div class="cam">
+        <div class="cam-live">Live</div>
+        <div class="cam-placeholder">2</div>
+        <div class="cam-tag">客厅 Living</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions / Scenes -->
+  <div class="c action-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--amber)"></span>Scenes 场景</div>
+    <div class="act-grid">
+      <div class="act" onclick="runScene('离家')">
+        <div class="act-icon" style="color:var(--coral-fg)">&#9758;</div>
+        <div><div class="act-name">离家模式</div><div class="act-desc">关灯 · 关空调 · 布防</div></div>
+      </div>
+      <div class="act" onclick="runScene('回家')">
+        <div class="act-icon" style="color:var(--green-fg)">&#9756;</div>
+        <div><div class="act-name">回家模式</div><div class="act-desc">开灯 · 开空调 · 撤防</div></div>
+      </div>
+      <div class="act" onclick="runScene('睡眠')">
+        <div class="act-icon" style="color:var(--blue-fg)">&#9790;</div>
+        <div><div class="act-name">睡眠模式</div><div class="act-desc">灯光渐暗 · 勿扰</div></div>
+      </div>
+      <div class="act" onclick="runScene('影院')">
+        <div class="act-icon" style="color:var(--amber-fg)">&#9654;</div>
+        <div><div class="act-name">影院模式</div><div class="act-desc">关灯 · 开电视 · 氛围光</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bar">
+    <div class="bar-dot"></div>
+    <div class="bar-text">说 <b>"小管家"</b> 开始对话 · Say <b>"Hey Home"</b></div>
+    <div class="bar-right">
+      <span class="bar-tag">Gateway</span>
+      <span class="bar-tag">FunctionGemma</span>
+      <span class="bar-energy">Today 4.2 kWh</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Voice dialog -->
+<div class="dlg" id="dlg" onclick="cd()">
+  <div class="dlg-box" onclick="event.stopPropagation()">
+    <div class="dlg-ring"><div class="dlg-core"></div></div>
+    <div class="dlg-said" id="dlgSaid">"帮我把客厅灯打开"</div>
+    <div class="dlg-reply" id="dlgReply">好的，客厅灯已开启，暖光模式 80%</div>
+    <div class="dlg-tap" onclick="cd()">点击返回 · Tap to dismiss</div>
+  </div>
+</div>
+
+<script>
+function pad(n){return String(n).padStart(2,'0')}
+function tick(){
+  const d=new Date();
+  document.getElementById('clock').innerHTML=
+    pad(d.getHours())+'<span style="animation:pls 2s infinite;display:inline-block">:</span>'+
+    pad(d.getMinutes())+'<span class="time-sec">'+pad(d.getSeconds())+'</span>';
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const mos=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('dateLine').textContent=
+    days[d.getDay()]+', '+mos[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+}
+tick();setInterval(tick,1000);
+
+function tgl(el){
+  if(el.classList.contains('on')){
+    el.classList.replace('on','off');el.querySelector('.dev-stat').textContent='Off';
+  }else if(el.classList.contains('off')){
+    el.classList.replace('off','on');el.querySelector('.dev-stat').textContent='On';
+  }
+}
+function runScene(name){
+  document.getElementById('dlgSaid').textContent='"启动'+name+'模式"';
+  document.getElementById('dlgReply').textContent='好的，'+name+'模式已启动';
+  document.getElementById('dlg').classList.add('on');
+}
+document.querySelector('.bar').addEventListener('click',function(){
+  document.getElementById('dlgSaid').textContent='"小管家，你好"';
+  document.getElementById('dlgReply').textContent='你好！有什么可以帮你的？';
+  document.getElementById('dlg').classList.add('on');
+});
+function cd(){document.getElementById('dlg').classList.remove('on')}
+</script>
+</body>
+</html>

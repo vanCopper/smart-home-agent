@@ -1,0 +1,10 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+.env
+.env.local
+dist/
+# validation artifacts (sandbox couldn't install real deps)
+server/_patched.mjs
+server/_stub_express.mjs
+server/_stub_ws.mjs

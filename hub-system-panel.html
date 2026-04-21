@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>System Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f6f5f2;--bg2:#eeedea;--bg3:#e5e4e0;
+  --fg:#1a1918;--fg2:#6b6a66;--fg3:#a3a29d;
+  --card:rgba(255,255,255,.92);--card-b:rgba(0,0,0,.05);
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.07);--blue-fg:#1d4ed8;
+  --green:#16a34a;--green-bg:rgba(22,163,74,.08);--green-fg:#15803d;
+  --amber:#d97706;--amber-bg:rgba(217,119,6,.08);--amber-fg:#b45309;
+  --red:#dc2626;--red-bg:rgba(220,38,38,.06);--red-fg:#b91c1c;
+  --teal:#0d9488;--teal-bg:rgba(13,148,136,.07);--teal-fg:#0f766e;
+  --coral:#e85d30;--coral-bg:rgba(232,93,48,.07);--coral-fg:#c2410c;
+  --purple:#7c3aed;--purple-bg:rgba(124,58,237,.07);--purple-fg:#6d28d9;
+  --r:14px;--rs:10px;
+  --font:'DM Sans','Noto Sans SC',system-ui,sans-serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111110;--bg2:#1c1b19;--bg3:#2a2926;
+  --fg:#ebe9e2;--fg2:#a8a79e;--fg3:#6e6d68;
+  --card:rgba(32,31,28,.85);--card-b:rgba(255,255,255,.06);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.1);--blue-fg:#93bbfd;
+  --green:#4ade80;--green-bg:rgba(74,222,128,.08);--green-fg:#86efac;
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,.08);--amber-fg:#fcd34d;
+  --red:#f87171;--red-bg:rgba(248,113,113,.08);--red-fg:#fca5a5;
+  --teal:#2dd4bf;--teal-bg:rgba(45,212,191,.08);--teal-fg:#5eead4;
+  --coral:#f0997b;--coral-bg:rgba(240,153,123,.08);--coral-fg:#f5c4b3;
+  --purple:#a78bfa;--purple-bg:rgba(167,139,250,.08);--purple-fg:#c4b5fd;
+}}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+
+.panel{
+  width:100%;height:100%;padding:16px;
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  grid-template-rows:auto 1fr 1fr auto;
+  gap:12px;
+}
+
+/* ─── Header ─── */
+.hdr{
+  grid-column:1/-1;display:flex;align-items:center;gap:14px;
+  padding:0 4px;animation:ci .35s ease both;
+}
+.hdr-back{
+  width:36px;height:36px;border-radius:50%;background:var(--bg2);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .15s;border:none;font-size:18px;color:var(--fg2);
+}
+.hdr-back:hover{background:var(--bg3)}
+.hdr-title{font-size:16px;font-weight:500;flex:1}
+.hdr-uptime{font-size:12px;color:var(--fg3);font-family:var(--mono)}
+.hdr-live{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:500;color:var(--green-fg);
+}
+.hdr-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:br 3s ease-in-out infinite}
+@keyframes br{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+.c{
+  background:var(--card);border:1px solid var(--card-b);
+  border-radius:var(--r);padding:16px 18px;
+  display:flex;flex-direction:column;overflow:hidden;
+  animation:ci .4s ease both;
+}
+.c:nth-child(2){animation-delay:.04s}.c:nth-child(3){animation-delay:.08s}
+.c:nth-child(4){animation-delay:.12s}.c:nth-child(5){animation-delay:.16s}
+.c:nth-child(6){animation-delay:.20s}
+@keyframes ci{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.cl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.cl-dot{width:5px;height:5px;border-radius:50%}
+
+/* ═══ Gateway Status ═══ */
+.gw-card{grid-column:1;grid-row:2}
+.gw-metrics{display:flex;flex-direction:column;gap:8px;flex:1}
+.gw-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-radius:var(--rs);background:var(--bg2);
+}
+.gw-label{font-size:12px;color:var(--fg2)}
+.gw-val{font-size:14px;font-weight:500;font-family:var(--mono)}
+.gw-val.ok{color:var(--green-fg)}
+.gw-val.warn{color:var(--amber-fg)}
+.gw-val.err{color:var(--red-fg)}
+.gw-bar-row{margin-top:auto;padding-top:10px;border-top:1px solid var(--card-b)}
+.gw-bar-label{font-size:10px;color:var(--fg3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.gw-bar-track{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden}
+.gw-bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+
+/* ═══ LLM Models ═══ */
+.llm-card{grid-column:2;grid-row:2}
+.llm-list{display:flex;flex-direction:column;gap:8px;flex:1}
+.llm-item{padding:12px;border-radius:var(--rs);display:flex;flex-direction:column;gap:6px}
+.llm-item.active{background:var(--green-bg);border:1px solid rgba(22,163,74,.12)}
+.llm-item.standby{background:var(--bg2);border:1px solid transparent}
+.llm-item.offline{background:var(--red-bg);border:1px solid rgba(220,38,38,.1)}
+.llm-head{display:flex;align-items:center;justify-content:space-between}
+.llm-name{font-size:13px;font-weight:500}
+.llm-badge{
+  font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 8px;border-radius:20px;
+}
+.llm-item.active .llm-badge{background:var(--green-bg);color:var(--green-fg)}
+.llm-item.standby .llm-badge{background:var(--amber-bg);color:var(--amber-fg)}
+.llm-item.offline .llm-badge{background:var(--red-bg);color:var(--red-fg)}
+.llm-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.llm-stat{font-size:10px;color:var(--fg3)}
+.llm-stat span{display:block;font-size:14px;font-weight:500;color:var(--fg);font-family:var(--mono);margin-top:1px}
+
+/* ═══ Nodes ═══ */
+.node-card{grid-column:3;grid-row:2}
+.node-list{display:flex;flex-direction:column;gap:8px;flex:1}
+.nd{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:var(--rs);background:var(--bg2);
+}
+.nd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.nd-dot.on{background:var(--green)}
+.nd-dot.off{background:var(--fg3);opacity:.3}
+.nd-info{flex:1;min-width:0}
+.nd-name{font-size:13px;font-weight:500}
+.nd-meta{font-size:11px;color:var(--fg3)}
+.nd-ping{font-size:12px;font-family:var(--mono);color:var(--fg3)}
+.nd-ping.good{color:var(--green-fg)}
+
+/* ═══ Tool Call Log ═══ */
+.log-card{grid-column:1/3;grid-row:3}
+.log-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.log-filter{
+  display:flex;gap:4px;margin-left:auto;
+}
+.log-fbtn{
+  font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;
+  background:var(--bg2);color:var(--fg2);border:none;cursor:pointer;
+  transition:all .15s;font-family:var(--font);
+}
+.log-fbtn.active{background:var(--blue-bg);color:var(--blue-fg)}
+.log-list{display:flex;flex-direction:column;gap:4px;flex:1;overflow-y:auto;scrollbar-width:none}
+.log-list::-webkit-scrollbar{display:none}
+.log-item{
+  display:grid;grid-template-columns:64px 1fr 120px 72px 56px;
+  align-items:center;gap:8px;
+  padding:7px 10px;border-radius:6px;font-size:12px;
+  transition:background .1s;
+}
+.log-item:hover{background:var(--bg2)}
+.log-time{font-family:var(--mono);color:var(--fg3);font-size:11px}
+.log-tool{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-input{color:var(--fg2);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-lat{font-family:var(--mono);font-size:11px;text-align:right}
+.log-lat.fast{color:var(--green-fg)}
+.log-lat.mid{color:var(--amber-fg)}
+.log-lat.slow{color:var(--red-fg)}
+.log-st{font-size:10px;font-weight:600;text-align:center;padding:2px 8px;border-radius:20px}
+.log-st.ok{background:var(--green-bg);color:var(--green-fg)}
+.log-st.fail{background:var(--red-bg);color:var(--red-fg)}
+.log-st.skip{background:var(--amber-bg);color:var(--amber-fg)}
+
+/* ═══ Energy & Stats ═══ */
+.energy-card{grid-column:3;grid-row:3}
+.en-top{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.en-box{background:var(--bg2);border-radius:var(--rs);padding:12px;text-align:center}
+.en-box-label{font-size:10px;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em}
+.en-box-val{font-size:26px;font-weight:500;letter-spacing:-1px;margin-top:4px;font-family:var(--mono)}
+.en-box-unit{font-size:12px;font-weight:400;color:var(--fg3)}
+.en-chart{flex:1;display:flex;flex-direction:column;gap:6px}
+.en-chart-label{font-size:10px;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em}
+.en-bars{display:flex;align-items:flex-end;gap:3px;flex:1;padding-top:4px}
+.en-bar{
+  flex:1;border-radius:3px 3px 0 0;
+  background:var(--blue-bg);position:relative;
+  transition:height .4s ease;min-height:4px;
+}
+.en-bar.high{background:var(--coral-bg)}
+.en-bar-tip{
+  position:absolute;top:-16px;left:50%;transform:translateX(-50%);
+  font-size:9px;font-family:var(--mono);color:var(--fg3);white-space:nowrap;display:none;
+}
+.en-bar:hover .en-bar-tip{display:block}
+.en-hour-labels{display:flex;gap:3px;font-size:9px;color:var(--fg3);font-family:var(--mono)}
+.en-hour-labels span{flex:1;text-align:center}
+
+/* ═══ Bottom ═══ */
+.btm{
+  grid-column:1/-1;grid-row:4;
+  display:flex;align-items:center;gap:12px;
+  padding:10px 18px;
+  background:var(--card);border:1px solid var(--card-b);
+  border-radius:var(--r);animation:ci .45s ease both;animation-delay:.24s;
+  font-size:12px;color:var(--fg3);
+}
+.btm-stat{display:flex;align-items:center;gap:6px}
+.btm-stat::before{content:'';width:4px;height:4px;border-radius:50%}
+.btm-stat.ok::before{background:var(--green)}
+.btm-stat.warn::before{background:var(--amber)}
+.btm-sep{width:1px;height:14px;background:var(--card-b)}
+.btm-right{margin-left:auto;font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body>
+<div class="panel">
+
+  <!-- Header -->
+  <div class="hdr">
+    <button class="hdr-back" onclick="history.back()" title="返回主屏">&#8592;</button>
+    <div class="hdr-title">System Panel 系统面板</div>
+    <div class="hdr-uptime">Uptime <span id="uptime">14d 6h 32m</span></div>
+    <div class="hdr-live">Connected</div>
+  </div>
+
+  <!-- Gateway Status -->
+  <div class="c gw-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--green)"></span>Gateway 网关</div>
+    <div class="gw-metrics">
+      <div class="gw-row">
+        <span class="gw-label">Status 状态</span>
+        <span class="gw-val ok">● Running</span>
+      </div>
+      <div class="gw-row">
+        <span class="gw-label">WebSocket</span>
+        <span class="gw-val ok">Connected</span>
+      </div>
+      <div class="gw-row">
+        <span class="gw-label">Latency 延迟</span>
+        <span class="gw-val ok">3 ms</span>
+      </div>
+      <div class="gw-row">
+        <span class="gw-label">Port 端口</span>
+        <span class="gw-val">18789</span>
+      </div>
+      <div class="gw-row">
+        <span class="gw-label">Sessions 会话</span>
+        <span class="gw-val">2 active</span>
+      </div>
+      <div class="gw-row">
+        <span class="gw-label">Today Calls</span>
+        <span class="gw-val">147</span>
+      </div>
+    </div>
+    <div class="gw-bar-row">
+      <div class="gw-bar-label">Memory 内存 · 4.1 / 8 GB</div>
+      <div class="gw-bar-track"><div class="gw-bar-fill" style="width:51%;background:var(--blue)"></div></div>
+      <div class="gw-bar-label" style="margin-top:8px">CPU · 23%</div>
+      <div class="gw-bar-track"><div class="gw-bar-fill" style="width:23%;background:var(--teal)"></div></div>
+    </div>
+  </div>
+
+  <!-- LLM Models -->
+  <div class="c llm-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--purple)"></span>LLM Models 模型</div>
+    <div class="llm-list">
+      <div class="llm-item active">
+        <div class="llm-head">
+          <span class="llm-name">FunctionGemma 270M</span>
+          <span class="llm-badge">Active</span>
+        </div>
+        <div class="llm-stats">
+          <div class="llm-stat">Avg latency<span>380ms</span></div>
+          <div class="llm-stat">Today calls<span>124</span></div>
+          <div class="llm-stat">Accuracy<span>96.2%</span></div>
+        </div>
+      </div>
+      <div class="llm-item active">
+        <div class="llm-head">
+          <span class="llm-name">Intent Router 路由器</span>
+          <span class="llm-badge">Active</span>
+        </div>
+        <div class="llm-stats">
+          <div class="llm-stat">Avg latency<span>18ms</span></div>
+          <div class="llm-stat">Today hits<span>89</span></div>
+          <div class="llm-stat">Hit rate<span>60.5%</span></div>
+        </div>
+      </div>
+      <div class="llm-item standby">
+        <div class="llm-head">
+          <span class="llm-name">Claude Sonnet (Cloud)</span>
+          <span class="llm-badge">Standby</span>
+        </div>
+        <div class="llm-stats">
+          <div class="llm-stat">Avg latency<span>4.2s</span></div>
+          <div class="llm-stat">Today calls<span>23</span></div>
+          <div class="llm-stat">Cost 费用<span>$0.18</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nodes -->
+  <div class="c node-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--teal)"></span>Nodes 节点</div>
+    <div class="node-list">
+      <div class="nd">
+        <div class="nd-dot on"></div>
+        <div class="nd-info"><div class="nd-name">Mac mini M4</div><div class="nd-meta">Gateway host · macOS 26</div></div>
+        <div class="nd-ping good">local</div>
+      </div>
+      <div class="nd">
+        <div class="nd-dot on"></div>
+        <div class="nd-info"><div class="nd-name">iPad Hub Screen</div><div class="nd-meta">Safari PWA · Web client</div></div>
+        <div class="nd-ping good">3ms</div>
+      </div>
+      <div class="nd">
+        <div class="nd-dot on"></div>
+        <div class="nd-info"><div class="nd-name">iPhone 15 Pro</div><div class="nd-meta">Telegram channel</div></div>
+        <div class="nd-ping good">28ms</div>
+      </div>
+      <div class="nd">
+        <div class="nd-dot on"></div>
+        <div class="nd-info"><div class="nd-name">USB Mic Array</div><div class="nd-meta">ReSpeaker · 4-mic</div></div>
+        <div class="nd-ping good">1ms</div>
+      </div>
+      <div class="nd">
+        <div class="nd-dot off"></div>
+        <div class="nd-info"><div class="nd-name">Apple Watch</div><div class="nd-meta">Companion · 未配对</div></div>
+        <div class="nd-ping">offline</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tool Call Log -->
+  <div class="c log-card">
+    <div class="cl" style="margin-bottom:0">
+      <span class="cl-dot" style="background:var(--amber)"></span>Tool Call Log 调用日志
+      <div class="log-filter">
+        <button class="log-fbtn active" onclick="filterLog(this,'all')">All</button>
+        <button class="log-fbtn" onclick="filterLog(this,'fast')">Fast</button>
+        <button class="log-fbtn" onclick="filterLog(this,'llm')">LLM</button>
+        <button class="log-fbtn" onclick="filterLog(this,'fail')">Fail</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:64px 1fr 120px 72px 56px;gap:8px;padding:8px 10px 4px;font-size:10px;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em">
+      <span>Time</span><span>Tool</span><span>Input 输入</span><span style="text-align:right">Latency</span><span style="text-align:center">Status</span>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="log-item"><span class="log-time">15:41:02</span><span class="log-tool">air_conditioner</span><span class="log-input">"空调调到25度"</span><span class="log-lat fast">42ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">15:38:17</span><span class="log-tool">tv_control</span><span class="log-input">"关掉电视"</span><span class="log-lat fast">38ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">15:35:44</span><span class="log-tool">light_control</span><span class="log-input">"卧室灯调暗一点"</span><span class="log-lat mid">420ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">15:30:12</span><span class="log-tool">scene_engine</span><span class="log-input">"启动回家模式"</span><span class="log-lat mid">680ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">15:22:08</span><span class="log-tool">robot_vacuum</span><span class="log-input">"开始扫地"</span><span class="log-lat fast">55ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">15:18:33</span><span class="log-tool">weather_query</span><span class="log-input">"今天会下雨吗"</span><span class="log-lat slow">4.2s</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">15:10:45</span><span class="log-tool">calendar_read</span><span class="log-input">"今天有什么安排"</span><span class="log-lat slow">3.8s</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">14:58:22</span><span class="log-tool">light_control</span><span class="log-input">"打开书房灯"</span><span class="log-lat fast">35ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">14:45:11</span><span class="log-tool">purifier_status</span><span class="log-input">"净水器什么状态"</span><span class="log-lat mid">510ms</span><span class="log-st ok">OK</span></div>
+      <div class="log-item"><span class="log-time">14:32:07</span><span class="log-tool">air_conditioner</span><span class="log-input">"太热了"</span><span class="log-lat mid">620ms</span><span class="log-st skip">Route</span></div>
+      <div class="log-item"><span class="log-time">14:20:55</span><span class="log-tool">music_control</span><span class="log-input">"播放轻音乐"</span><span class="log-lat slow">5.1s</span><span class="log-st fail">Fail</span></div>
+      <div class="log-item"><span class="log-time">14:15:30</span><span class="log-tool">light_control</span><span class="log-input">"全屋关灯"</span><span class="log-lat fast">48ms</span><span class="log-st ok">OK</span></div>
+    </div>
+  </div>
+
+  <!-- Energy & Stats -->
+  <div class="c energy-card">
+    <div class="cl"><span class="cl-dot" style="background:var(--coral)"></span>Energy 能耗</div>
+    <div class="en-top">
+      <div class="en-box">
+        <div class="en-box-label">Today 今日</div>
+        <div class="en-box-val" style="color:var(--blue-fg)">4.2<span class="en-box-unit"> kWh</span></div>
+      </div>
+      <div class="en-box">
+        <div class="en-box-label">Cost 费用</div>
+        <div class="en-box-val" style="color:var(--coral-fg)">¥3.8</div>
+      </div>
+    </div>
+    <div class="en-chart">
+      <div class="en-chart-label">Hourly usage 每小时用电</div>
+      <div class="en-bars" id="enBars"></div>
+      <div class="en-hour-labels" id="enLabels"></div>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--card-b);display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="font-size:11px;color:var(--fg3)">本月累计<br><span style="font-size:16px;font-weight:500;color:var(--fg);font-family:var(--mono)">128.4 kWh</span></div>
+      <div style="font-size:11px;color:var(--fg3)">对比昨日<br><span style="font-size:16px;font-weight:500;color:var(--green-fg);font-family:var(--mono)">-12.3%</span></div>
+    </div>
+  </div>
+
+  <!-- Bottom -->
+  <div class="btm">
+    <span class="btm-stat ok">Gateway</span>
+    <span class="btm-sep"></span>
+    <span class="btm-stat ok">FunctionGemma</span>
+    <span class="btm-sep"></span>
+    <span class="btm-stat ok">3 nodes online</span>
+    <span class="btm-sep"></span>
+    <span class="btm-stat warn">1 node offline</span>
+    <span class="btm-right" id="sysTime">15:42:28</span>
+  </div>
+
+</div>
+
+<script>
+function pad(n){return String(n).padStart(2,'0')}
+setInterval(function(){
+  var d=new Date();
+  document.getElementById('sysTime').textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+},1000);
+
+var hourlyData=[0.1,0.1,0.1,0.05,0.05,0.05,0.15,0.3,0.4,0.35,0.25,0.2,0.3,0.35,0.4,0.45,0,0,0,0,0,0,0,0];
+var now=new Date().getHours();
+var bars=document.getElementById('enBars');
+var labels=document.getElementById('enLabels');
+var maxH=Math.max.apply(null,hourlyData.slice(0,now+1))||1;
+for(var i=0;i<=23;i++){
+  var b=document.createElement('div');
+  b.className='en-bar';
+  if(i<=now){
+    var pct=Math.round((hourlyData[i]/maxH)*100);
+    b.style.height=Math.max(pct,5)+'%';
+    if(hourlyData[i]>0.35)b.classList.add('high');
+  }else{
+    b.style.height='0%';b.style.opacity='.2';
+  }
+  var tip=document.createElement('div');
+  tip.className='en-bar-tip';
+  tip.textContent=(hourlyData[i]*1000).toFixed(0)+'Wh';
+  b.appendChild(tip);
+  bars.appendChild(b);
+
+  if(i%4===0){
+    var l=document.createElement('span');
+    l.textContent=pad(i);
+    labels.appendChild(l);
+  }
+}
+
+function filterLog(btn,type){
+  document.querySelectorAll('.log-fbtn').forEach(function(b){b.classList.remove('active')});
+  btn.classList.add('active');
+  document.querySelectorAll('.log-item').forEach(function(item){
+    var lat=item.querySelector('.log-lat');
+    var st=item.querySelector('.log-st');
+    var show=true;
+    if(type==='fast')show=lat.classList.contains('fast');
+    if(type==='llm')show=lat.classList.contains('mid')||lat.classList.contains('slow');
+    if(type==='fail')show=st.classList.contains('fail')||st.classList.contains('skip');
+    item.style.display=show?'':'none';
+  });
+}
+</script>
+</body>
+</html>
