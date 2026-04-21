@@ -18,6 +18,8 @@ export class BaseComponent extends HTMLElement {
     this._unsubs = [];
     this._watches = new Map();   // key -> latest value
     this._mounted = false;
+    this._hasRendered = false;
+    this._lastHtml = null;
   }
 
   connectedCallback() {
@@ -53,7 +55,12 @@ export class BaseComponent extends HTMLElement {
 
   _renderAndBind() {
     const html = this.render?.();
-    if (html !== undefined) this.innerHTML = html;
+    if (html !== undefined && html !== this._lastHtml) {
+      if (this._hasRendered) this.setAttribute('data-rerender', '1');
+      this.innerHTML = html;
+      this._lastHtml = html;
+      this._hasRendered = true;
+    }
     this.afterRender?.();
   }
 

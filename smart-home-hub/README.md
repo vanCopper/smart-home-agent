@@ -36,16 +36,19 @@ smart-home-hub/
 
 ```bash
 npm install
-npm start           # 启动 http://localhost:3000 和 ws://localhost:3000/ws
+npm start           # 启动 http://localhost:3300 和 ws://localhost:3300/ws
 # 或开发模式 (自动 reload server)
 npm run dev
 ```
 
-打开 `http://localhost:3000` 看到主屏。URL 加 `#/system` 进入系统面板；也可以点击主屏底部状态栏右侧的 "Gateway / FunctionGemma" 区域跳转。
+打开 `http://localhost:3300` 看到主屏。URL 加 `#/system` 进入系统面板；也可以点击主屏底部状态栏右侧的 "Gateway / FunctionGemma" 区域跳转。
 
 ## iPad 接入
 
-- iPad 连同一 Wi-Fi，Safari 打开 `http://mac-mini.local:3000`
+- iPad 连同一 Wi-Fi，Safari 打开 `http://mac-mini.local:3300`
+- 也可直接用内网 IP 访问：`http://<你的内网IP>:3300`
+- Windows 查看内网 IP：`Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } | Select-Object InterfaceAlias, @{N='IPv4';E={$_.IPv4Address.IPAddress}}`
+- 优先使用有默认网关的网卡 IP（例如 `10.x.x.x` / `192.168.x.x`），不要用 `vEthernet` 等虚拟网卡地址（常见 `172.x.x.x`）
 - 添加到主屏幕（分享 → 添加到主屏幕）：获得独立图标、无浏览器 UI
 - 设置 → 辅助功能 → 引导式访问：打开后三击电源键锁定 Safari 全屏，禁止退出
 - 关闭自动锁定（引导式访问内的选项）

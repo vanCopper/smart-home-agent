@@ -100,7 +100,7 @@
 
 ```
 Mac mini
-├── 本地 Web 服务 (localhost:3000)
+├── 本地 Web 服务 (localhost:3300)
 │    ├── WebSocket 推送设备状态/环境/日程
 │    ├── 摄像头流转码 (RTSP → HLS)
 │    └── 中枢屏 UI (HTML/CSS/JS)
@@ -110,7 +110,7 @@ Mac mini
 └── 家电/电视 Tool 接口
 
 iPad 10.9"（挂墙/桌面）
-└── Safari 全屏 → http://mac-mini.local:3000
+└── Safari 全屏 → http://mac-mini.local:3300
      └── 引导式访问锁定（常亮/禁止退出）
 ```
 

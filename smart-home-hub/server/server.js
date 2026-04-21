@@ -28,7 +28,7 @@ import * as sys    from './mock/system.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3300;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // ── HTTP 层 ─────────────────────────────────────────────────────

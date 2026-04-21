@@ -2,7 +2,7 @@
 
 本文档定义前端 (`public/`) 与后端 (`server/`) 之间的 WebSocket 消息约定。所有消息都是 JSON 文本帧。
 
-- 路径：`ws://<host>:3000/ws`
+- 路径：`ws://<host>:3300/ws`
 - 编码：UTF-8 JSON
 - 心跳：客户端每 20–30s 可发 `{"type":"ping"}`，服务器回 `{"type":"pong"}`（可选）
 

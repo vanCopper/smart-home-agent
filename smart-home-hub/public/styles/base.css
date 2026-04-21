@@ -30,6 +30,7 @@ html,body{
   overflow: hidden;
   animation: card-in .45s ease both;
 }
+[data-rerender="1"] .c{ animation: none !important; }
 @keyframes card-in{ from{ opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
 
 /* ── 卡片标签 (Environment 环境 / Devices 设备 …) ── */
