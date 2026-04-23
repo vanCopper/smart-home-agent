@@ -46,7 +46,7 @@ const CLIENT_ID = 'cli';
 const CLIENT_MODE = 'cli';
 const CLIENT_VERSION = '0.0.1';
 const ROLE = 'operator';
-const SCOPES = ['operator.read'];
+const SCOPES = ['operator.read', 'operator.write'];
 
 const PORT = (() => {
   try { return Number(new URL(WS_URL).port) || 18789; } catch { return 18789; }

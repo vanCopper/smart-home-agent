@@ -1,0 +1,22 @@
+# Audio I/O
+sounddevice>=0.4.6
+numpy>=1.26
+
+# Wake word detection
+openwakeword>=0.6.0
+
+# Voice Activity Detection
+torch>=2.2.0
+torchaudio>=2.2.0
+
+# ASR — Apple Silicon Metal GPU acceleration
+mlx-whisper>=0.4.0
+
+# TTS — Fish Speech S2 Pro via MLX
+mlx-audio>=0.1.0
+
+# HTTP client (SSE streaming to Node.js)
+httpx>=0.27.0
+
+# Config
+python-dotenv>=1.0.0

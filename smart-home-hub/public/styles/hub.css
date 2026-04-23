@@ -194,3 +194,6 @@ voice-bar{ grid-column:1/-1; grid-row:3; }
 .dlg-said{ font-size:20px; font-weight:500; color:rgba(255,255,255,.95); margin-bottom:8px; }
 .dlg-reply{ font-size:15px; color:rgba(255,255,255,.5); line-height:1.5; }
 .dlg-tap{ margin-top:28px; font-size:12px; color:rgba(255,255,255,.2); cursor:pointer; }
+.dlg-listening{ font-size:14px; color:rgba(255,255,255,.4); letter-spacing:.08em; margin-bottom:20px; }
+.dlg.listening .dlg-core{ background:var(--red,#ef4444); animation:breathe .8s ease-in-out infinite; }
+@keyframes breathe{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }

@@ -1,5 +1,6 @@
 // <voice-dialog> — 全屏毛玻璃对话 overlay
 //   监听 voice/event：
+//     type='listening' → 弹出，圆圈变红，等待识别
 //     type='said'  → 更新用户说的话
 //     type='reply' → 更新 Agent 回复
 //     type='end'   → 关闭
@@ -13,13 +14,23 @@ export class VoiceDialog extends BaseComponent {
     this._said = '';
     this._reply = '';
     this._open = false;
+    this._listening = false;
     this._closeTimer = null;
 
     this._unsubWs = wsClient.subscribe(TOPICS.VOICE_EVENT, (ev) => {
       if (!ev) return;
-      if (ev.type === 'said')   { this._said = ev.text;  this._open = true; this._delayAutoClose(8000); }
-      else if (ev.type === 'reply') { this._reply = ev.text; this._open = true; this._delayAutoClose(6000); }
-      else if (ev.type === 'end')   { this._open = false; }
+      if (ev.type === 'listening') {
+        this._listening = true; this._said = ''; this._reply = '';
+        this._open = true; clearTimeout(this._closeTimer);
+      } else if (ev.type === 'said') {
+        this._listening = false; this._said = ev.text;
+        this._open = true; this._delayAutoClose(8000);
+      } else if (ev.type === 'reply') {
+        this._listening = false; this._reply = ev.text;
+        this._open = true; this._delayAutoClose(6000);
+      } else if (ev.type === 'end') {
+        this._open = false; this._listening = false;
+      }
       this._renderAndBind();
     });
     this._unsubs.push(this._unsubWs);
@@ -35,6 +46,7 @@ export class VoiceDialog extends BaseComponent {
   }
   _close() {
     this._open = false;
+    this._listening = false;
     this._said = '';
     this._reply = '';
     this._renderAndBind();
@@ -42,9 +54,10 @@ export class VoiceDialog extends BaseComponent {
 
   render() {
     return `
-      <div class="dlg ${this._open ? 'on' : ''}">
+      <div class="dlg ${this._open ? 'on' : ''} ${this._listening ? 'listening' : ''}">
         <div class="dlg-box">
           <div class="dlg-ring"><div class="dlg-core"></div></div>
+          ${this._listening ? '<div class="dlg-listening">正在聆听… · Listening…</div>' : ''}
           <div class="dlg-said">${esc(this._said || '')}</div>
           <div class="dlg-reply">${esc(this._reply || '')}</div>
           <div class="dlg-tap">点击返回 · Tap to dismiss</div>

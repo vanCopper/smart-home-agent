@@ -36,6 +36,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 // ── HTTP 层 ─────────────────────────────────────────────────────
 const app = express();
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
+app.use(express.json());
 app.get('/healthz', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get('/api/topics', (_req, res) => res.json({ topics: Object.values(TOPICS) }));
 
@@ -88,6 +89,83 @@ function pushSnapshot(ws, topic) {
     console.error('snapshot error', topic, e);
   }
 }
+
+// ── Internal voice API (127.0.0.1 only, used by voice-agent) ────
+function rejectNonLocal(req, res) {
+  const ip = req.socket.remoteAddress;
+  if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+    res.status(403).json({ error: 'forbidden' });
+    return true;
+  }
+  return false;
+}
+
+app.post('/internal/voice/event', (req, res) => {
+  if (rejectNonLocal(req, res)) return;
+  const { type, text = '' } = req.body || {};
+  if (!type) return res.status(400).json({ error: 'type required' });
+  publish(TOPICS.VOICE_EVENT, { type, text });
+  res.json({ ok: true });
+});
+
+app.post('/internal/voice/send', async (req, res) => {
+  if (rejectNonLocal(req, res)) return;
+  const { text, sessionKey = 'agent:main:main' } = req.body || {};
+  if (!text) return res.status(400).json({ error: 'text required' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();   // send headers immediately, enable chunked streaming
+
+  const sse = (obj) => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+
+  const unsubAgent = openclaw.on('agent', (payload) => {
+    if (payload?.sessionKey && payload.sessionKey !== sessionKey) return;
+    const stream = payload?.stream;
+    if (stream === 'delta') {
+      const chunk = payload?.delta ?? payload?.content ?? payload?.text ?? '';
+      if (chunk) sse({ type: 'delta', text: chunk });
+    } else if (stream === 'done' || stream === 'result') {
+      sse({ type: 'done' });
+      cleanup();
+    }
+  });
+
+  const unsubMsg = openclaw.on('session.message', (payload) => {
+    if (payload?.sessionKey !== sessionKey) return;
+    const msg = payload?.message;
+    if (msg?.role !== 'assistant') return;
+    const full = (msg.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+    if (full) sse({ type: 'complete', text: full });
+    sse({ type: 'done' });
+    cleanup();
+  });
+
+  let done = false;
+  const timeout = setTimeout(() => { sse({ type: 'done' }); cleanup(); }, 30_000);
+
+  function cleanup() {
+    if (done) return;
+    done = true;
+    clearTimeout(timeout);
+    unsubAgent();
+    unsubMsg();
+    if (!res.writableEnded) res.end();
+  }
+
+  res.on('close', cleanup);
+
+  try {
+    await openclaw.rpc('sessions.send', { key: sessionKey, message: text });
+  } catch (e) {
+    sse({ type: 'error', message: e.message });
+    cleanup();
+  }
+});
 
 // ── RPC handlers (client-driven actions) ────────────────────────
 const RPC = {
