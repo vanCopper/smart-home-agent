@@ -20,6 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { TOPICS, TOPIC_TICK } from './topics.js';
 import * as hub from './mock/hub.js';
 import * as sys from './mock/system.js';
+import * as openclaw from './openclaw.js';
+import * as claw from './openclaw-panels.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
@@ -231,13 +233,13 @@ const SNAPSHOTS = {
   [TOPICS.SCHEDULE_INFO]:  hub.scheduleTomorrowSnapshot,
   [TOPICS.CAMERA_LIST]:    hub.camerasSnapshot,
   [TOPICS.SCENES_LIST]:    hub.scenesSnapshot,
-  [TOPICS.VOICE_STATE]:    hub.voiceStateSnapshot,
-  [TOPICS.GW_STATUS]:      sys.gatewaySnapshot,
-  [TOPICS.LLM_STATUS]:     sys.llmSnapshot,
-  [TOPICS.NODES_LIST]:     sys.nodesSnapshot,
-  [TOPICS.TOOL_LOG]:       sys.toolLogSnapshot,
+  [TOPICS.VOICE_STATE]:    claw.voiceStateSnapshot,
+  [TOPICS.GW_STATUS]:      openclaw.gatewaySnapshot,
+  [TOPICS.LLM_STATUS]:     claw.llmStatusSnapshot,
+  [TOPICS.NODES_LIST]:     claw.nodesSnapshot,
+  [TOPICS.TOOL_LOG]:       claw.toolLogSnapshot,
   [TOPICS.ENERGY]:         sys.energySnapshot,
-  [TOPICS.SYS_SUMMARY]:    sys.sysSummarySnapshot,
+  [TOPICS.SYS_SUMMARY]:    claw.sysSummarySnapshot,
 };
 
 function pushSnapshot(client, topic) {
@@ -275,12 +277,13 @@ function ticker(topic, fn, interval) {
 ticker(TOPICS.CLOCK,       hub.clockSnapshot,      TOPIC_TICK[TOPICS.CLOCK]);
 ticker(TOPICS.ENV_INDOOR,  hub.envIndoorSnapshot,  TOPIC_TICK[TOPICS.ENV_INDOOR]);
 ticker(TOPICS.ENV_OUTDOOR, hub.envOutdoorSnapshot, TOPIC_TICK[TOPICS.ENV_OUTDOOR]);
-ticker(TOPICS.GW_STATUS,   sys.gatewaySnapshot,    TOPIC_TICK[TOPICS.GW_STATUS]);
-ticker(TOPICS.LLM_STATUS,  sys.llmSnapshot,        TOPIC_TICK[TOPICS.LLM_STATUS]);
-ticker(TOPICS.NODES_LIST,  sys.nodesSnapshot,      TOPIC_TICK[TOPICS.NODES_LIST]);
-ticker(TOPICS.ENERGY,      sys.energySnapshot,     TOPIC_TICK[TOPICS.ENERGY]);
-ticker(TOPICS.SYS_SUMMARY, sys.sysSummarySnapshot, TOPIC_TICK[TOPICS.SYS_SUMMARY]);
-setInterval(() => publish(TOPICS.TOOL_LOG_APPEND, sys.appendToolLogEntry()), TOPIC_TICK[TOPICS.TOOL_LOG_APPEND]);
+ticker(TOPICS.GW_STATUS,   openclaw.gatewaySnapshot,   TOPIC_TICK[TOPICS.GW_STATUS]);
+ticker(TOPICS.LLM_STATUS,  claw.llmStatusSnapshot,     TOPIC_TICK[TOPICS.LLM_STATUS]);
+ticker(TOPICS.NODES_LIST,  claw.nodesSnapshot,         TOPIC_TICK[TOPICS.NODES_LIST]);
+ticker(TOPICS.VOICE_STATE, claw.voiceStateSnapshot,    TOPIC_TICK[TOPICS.VOICE_STATE] || 5_000);
+ticker(TOPICS.ENERGY,      sys.energySnapshot,         TOPIC_TICK[TOPICS.ENERGY]);
+ticker(TOPICS.SYS_SUMMARY, claw.sysSummarySnapshot,    TOPIC_TICK[TOPICS.SYS_SUMMARY]);
+claw.onToolLogAppend((entry) => publish(TOPICS.TOOL_LOG_APPEND, entry));
 setInterval(() => publish(TOPICS.WEATHER, hub.weatherSnapshot()), 60_000);
 
 // ── 5. Boot ─────────────────────────────────────────────────────
@@ -289,4 +292,12 @@ server.listen(PORT, HOST, () => {
   console.log(`\nSmart Home Hub (standalone, zero-dep)`);
   console.log(`  HTTP  http://${host}:${PORT}`);
   console.log(`  WS    ws://${host}:${PORT}/ws\n`);
+
+  // 拉起 OpenClaw adapter（连不上也不阻塞）
+  openclaw.start();
+  claw.start();
 });
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => { claw.stop(); openclaw.stop(); process.exit(0); });
+}

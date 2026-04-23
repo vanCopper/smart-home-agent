@@ -18,11 +18,17 @@ export class ToolLog extends BaseComponent {
     }));
     this._unsubs.push(wsClient.subscribe(TOPICS.TOOL_LOG_APPEND, (entry) => {
       if (!entry) return;
-      this._items.unshift(entry);
-      if (this._items.length > MAX_KEEP) this._items.length = MAX_KEEP;
-      this._newIds.add(entry.id);
+      // 同 id 视为 patch（tool_result → 更新 latency/status），就地替换；否则头插
+      const existingIdx = this._items.findIndex((it) => it.id === entry.id);
+      if (existingIdx >= 0) {
+        this._items[existingIdx] = { ...this._items[existingIdx], ...entry };
+      } else {
+        this._items.unshift(entry);
+        if (this._items.length > MAX_KEEP) this._items.length = MAX_KEEP;
+        this._newIds.add(entry.id);
+        setTimeout(() => this._newIds.delete(entry.id), 400);
+      }
       this._renderAndBind();
-      setTimeout(() => this._newIds.delete(entry.id), 400);
     }));
 
     this.on('.log-fbtn', 'click', (_, el) => {

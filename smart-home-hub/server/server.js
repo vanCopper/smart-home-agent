@@ -25,6 +25,8 @@ import { fileURLToPath } from 'node:url';
 import { TOPICS, TOPIC_TICK } from './topics.js';
 import * as hub    from './mock/hub.js';
 import * as sys    from './mock/system.js';
+import * as openclaw from './openclaw.js';
+import * as claw   from './openclaw-panels.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
@@ -68,13 +70,13 @@ const SNAPSHOTS = {
   [TOPICS.SCHEDULE_INFO]:  hub.scheduleTomorrowSnapshot,
   [TOPICS.CAMERA_LIST]:    hub.camerasSnapshot,
   [TOPICS.SCENES_LIST]:    hub.scenesSnapshot,
-  [TOPICS.VOICE_STATE]:    hub.voiceStateSnapshot,
-  [TOPICS.GW_STATUS]:      sys.gatewaySnapshot,
-  [TOPICS.LLM_STATUS]:     sys.llmSnapshot,
-  [TOPICS.NODES_LIST]:     sys.nodesSnapshot,
-  [TOPICS.TOOL_LOG]:       sys.toolLogSnapshot,
+  [TOPICS.VOICE_STATE]:    claw.voiceStateSnapshot,
+  [TOPICS.GW_STATUS]:      openclaw.gatewaySnapshot,
+  [TOPICS.LLM_STATUS]:     claw.llmStatusSnapshot,
+  [TOPICS.NODES_LIST]:     claw.nodesSnapshot,
+  [TOPICS.TOOL_LOG]:       claw.toolLogSnapshot,
   [TOPICS.ENERGY]:         sys.energySnapshot,
-  [TOPICS.SYS_SUMMARY]:    sys.sysSummarySnapshot,
+  [TOPICS.SYS_SUMMARY]:    claw.sysSummarySnapshot,
 };
 
 function pushSnapshot(ws, topic) {
@@ -158,16 +160,15 @@ function startTicker(topic, fn, interval) {
 startTicker(TOPICS.CLOCK,       hub.clockSnapshot,        TOPIC_TICK[TOPICS.CLOCK]);
 startTicker(TOPICS.ENV_INDOOR,  hub.envIndoorSnapshot,    TOPIC_TICK[TOPICS.ENV_INDOOR]);
 startTicker(TOPICS.ENV_OUTDOOR, hub.envOutdoorSnapshot,   TOPIC_TICK[TOPICS.ENV_OUTDOOR]);
-startTicker(TOPICS.GW_STATUS,   sys.gatewaySnapshot,      TOPIC_TICK[TOPICS.GW_STATUS]);
-startTicker(TOPICS.LLM_STATUS,  sys.llmSnapshot,          TOPIC_TICK[TOPICS.LLM_STATUS]);
-startTicker(TOPICS.NODES_LIST,  sys.nodesSnapshot,        TOPIC_TICK[TOPICS.NODES_LIST]);
-startTicker(TOPICS.ENERGY,      sys.energySnapshot,       TOPIC_TICK[TOPICS.ENERGY]);
-startTicker(TOPICS.SYS_SUMMARY, sys.sysSummarySnapshot,   TOPIC_TICK[TOPICS.SYS_SUMMARY]);
+startTicker(TOPICS.GW_STATUS,   openclaw.gatewaySnapshot,   TOPIC_TICK[TOPICS.GW_STATUS]);
+startTicker(TOPICS.LLM_STATUS,  claw.llmStatusSnapshot,     TOPIC_TICK[TOPICS.LLM_STATUS]);
+startTicker(TOPICS.NODES_LIST,  claw.nodesSnapshot,         TOPIC_TICK[TOPICS.NODES_LIST]);
+startTicker(TOPICS.VOICE_STATE, claw.voiceStateSnapshot,    TOPIC_TICK[TOPICS.VOICE_STATE] || 5_000);
+startTicker(TOPICS.ENERGY,      sys.energySnapshot,         TOPIC_TICK[TOPICS.ENERGY]);
+startTicker(TOPICS.SYS_SUMMARY, claw.sysSummarySnapshot,    TOPIC_TICK[TOPICS.SYS_SUMMARY]);
 
-// 追加式推 tool call log（而不是全量）
-setInterval(() => {
-  publish(TOPICS.TOOL_LOG_APPEND, sys.appendToolLogEntry());
-}, TOPIC_TICK[TOPICS.TOOL_LOG_APPEND]);
+// 真实工具调用追加：session.tool 事件 → TOOL_LOG_APPEND
+claw.onToolLogAppend((entry) => publish(TOPICS.TOOL_LOG_APPEND, entry));
 
 // 每分钟刷一次天气 (mock 随机波动)
 setInterval(() => publish(TOPICS.WEATHER, hub.weatherSnapshot()), 60_000);
@@ -178,4 +179,13 @@ server.listen(PORT, HOST, () => {
   console.log(`  HTTP  http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`  WS    ws://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/ws`);
   console.log(`  iPad  http://mac-mini.local:${PORT}\n`);
+
+  // 拉起 OpenClaw adapter（连不上也不阻塞）
+  openclaw.start();
+  claw.start();
 });
+
+// 进程退出时关掉 OpenClaw 连接，避免僵尸重连定时器
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => { claw.stop(); openclaw.stop(); process.exit(0); });
+}

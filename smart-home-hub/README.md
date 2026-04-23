@@ -6,10 +6,15 @@
 smart-home-hub/
 ├── server/                    # Node.js + Express + ws 本地服务
 │   ├── server.js              # 入口 (HTTP + WebSocket)
+│   ├── standalone.js          # 零依赖版入口（不需要 npm install）
 │   ├── topics.js              # Topic 常量（与前端共享）
+│   ├── openclaw.js            # OpenClaw Gateway 长连客户端（v3 Ed25519 签名握手）
+│   ├── openclaw-panels.js     # LLM / ToolLog / Voice / Nodes / Summary 面板聚合
+│   ├── openclaw-ws-signed.js  # 单次握手探测 (debug)
+│   ├── openclaw-rpc-probe.js  # 批量 RPC shape 探测 (debug)
 │   └── mock/
 │       ├── hub.js             # 主屏数据 mock
-│       └── system.js          # 系统面板数据 mock
+│       └── system.js          # 系统面板数据 mock（只剩 energySnapshot 仍在用）
 ├── public/                    # 前端（零构建，浏览器 ES modules 直开）
 │   ├── index.html             # 入口
 │   ├── styles/
@@ -27,7 +32,8 @@ smart-home-hub/
 │       │   └── base-component.js  # Web Component 基类
 │       ├── components/        # 13 个 Web Components
 │       └── pages/             # 两个页面组装器
-├── PROTOCOL.md                # WebSocket topic / RPC 协议
+├── PROTOCOL.md                # 前端 ↔ hub 的 WebSocket topic / RPC 协议
+├── OPENCLAW_INTEGRATION.md    # hub ↔ OpenClaw Gateway 集成笔记（握手 / RPC shape / 故障排查）
 ├── package.json
 └── README.md
 ```
@@ -100,12 +106,10 @@ WebSocket 协议细节见 [PROTOCOL.md](PROTOCOL.md)。
 
 ## 对接真实数据
 
-当前 `server/mock/*.js` 是完全模拟的数据源。替换为真实数据时：
-
-1. **OpenClaw Gateway**：在 `server.js` 里建立到 `ws://localhost:18789` 的连接，把 Gateway 事件映射到对应 topic 的 `publish()`。
-2. **设备控制**：在 `RPC` handlers 里调用实际的 Tool，保持返回格式不变。
-3. **摄像头**：跑 ffmpeg RTSP→HLS，把输出的 `.m3u8` URL 填进 `cameras/list` 的 `stream_url`。
-4. **能耗**：对接 HomeKit / 智能插座 API，按原格式推 `system/energy`。
+1. **OpenClaw Gateway** — 已接。`server/openclaw.js` 做 Ed25519 v3 签名握手长连，`server/openclaw-panels.js` 把 RPC / 事件转成 5 个 system topic 的 snapshot。细节见 [OPENCLAW_INTEGRATION.md](OPENCLAW_INTEGRATION.md)。
+2. **设备控制** — 在 `RPC` handlers 里调用实际的 Tool，保持返回格式不变。现在用 `openclaw.rpc('sessions.send', …)` 就能驱动真实 agent；需要在 `openclaw.js` 的 `SCOPES` 里加 `'operator.write'`。
+3. **摄像头** — 跑 ffmpeg RTSP→HLS，把输出的 `.m3u8` URL 填进 `cameras/list` 的 `stream_url`。
+4. **能耗** — 对接 HomeAssistant / 智能插座 API，按原格式推 `system/energy`。
 
 前端代码和协议都不用改。
 
@@ -118,8 +122,17 @@ WebSocket 协议细节见 [PROTOCOL.md](PROTOCOL.md)。
 - [x] 13 个 Web Components，全部接入 store
 - [x] 完整 mock 数据和周期推送
 - [x] 设备切换、场景触发、语音对话框等交互
+- [x] OpenClaw Gateway 对接（v3 Ed25519 签名握手 + 长连 WS；详见 [OPENCLAW_INTEGRATION.md](OPENCLAW_INTEGRATION.md)）
+  - [x] `system/gateway` — 运行状态 / 延迟 / 会话数 / uptime
+  - [x] `system/llm` — 可用模型列表（含 active/standby 状态）
+  - [x] `system/nodes` — 节点 presence
+  - [x] `system/tool-log` — 实时工具调用日志
+  - [x] `voice/state` — 唤醒词 / 默认模型 / TTS 配置
+  - [x] `system/summary` — 底部状态聚合
+- [ ] `system/energy` 真实数据源（智能插座 / 电表）
+- [ ] `system/gateway` 补齐 CPU / 内存 / today_calls
 - [ ] 真实天气 API（当前随时间正弦波动）
 - [ ] 真实摄像头流（RTSP→HLS）
-- [ ] OpenClaw Gateway 对接
+- [ ] 设备控制走 OpenClaw（需要加 `operator.write` scope）
 - [ ] 多成员身份识别
 ```
