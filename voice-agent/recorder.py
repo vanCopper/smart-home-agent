@@ -70,12 +70,16 @@ class Recorder:
         # Require this many consecutive "speech" chunks before declaring
         # the user has actually started talking. Filters out single-frame
         # VAD blips on TTS tail / fan noise / breathing.
-        START_DEBOUNCE = 5  # ~160ms at 32ms/chunk
+        START_DEBOUNCE  = 5   # ~160ms at 32ms/chunk
+        # Pre-buffer is intentionally LARGER than START_DEBOUNCE so that when
+        # debounce fires we still have audio from before the onset.
+        # Without this, the ring shifts during the debounce window and the
+        # first syllable is already gone by the time we commit.
+        PRE_BUFFER_SIZE = 12  # ~384ms lookback (debounce=160ms + 224ms headroom)
         silence_count = 0
         total_chunks  = 0
         speech_run    = 0      # consecutive speech chunks pre-start
         speech_started = False
-        # Small ring of pre-start frames so we don't clip the very first phoneme.
         pre_buffer: list[np.ndarray] = []
 
         def cb(indata: np.ndarray, *_):
@@ -88,10 +92,8 @@ class Recorder:
                     speech_run += 1
                 else:
                     speech_run = 0
-                # Keep the last ~START_DEBOUNCE frames so the kept audio
-                # includes the leading edge of the utterance.
                 pre_buffer.append(chunk)
-                if len(pre_buffer) > START_DEBOUNCE:
+                if len(pre_buffer) > PRE_BUFFER_SIZE:
                     pre_buffer.pop(0)
                 if speech_run >= START_DEBOUNCE:
                     # Extra energy gate: VAD can fire on fan/AC noise.
