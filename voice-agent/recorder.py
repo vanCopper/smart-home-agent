@@ -94,10 +94,20 @@ class Recorder:
                 if len(pre_buffer) > START_DEBOUNCE:
                     pre_buffer.pop(0)
                 if speech_run >= START_DEBOUNCE:
-                    speech_started = True
-                    frames.extend(pre_buffer)
-                    pre_buffer.clear()
-                    silence_count = 0
+                    # Extra energy gate: VAD can fire on fan/AC noise.
+                    # Require the pre_buffer to have real speech energy
+                    # before committing to speech_started.
+                    pre_rms = float(np.sqrt(np.mean(
+                        np.concatenate(pre_buffer).astype(np.float32) ** 2
+                    )))
+                    if pre_rms >= 0.004:
+                        speech_started = True
+                        frames.extend(pre_buffer)
+                        pre_buffer.clear()
+                        silence_count = 0
+                    else:
+                        # Noise blip — reset debounce, keep listening
+                        speech_run = 0
             else:
                 if is_sp:
                     silence_count = 0
