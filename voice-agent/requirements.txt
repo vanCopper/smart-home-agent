@@ -9,7 +9,8 @@ openwakeword>=0.6.0
 torch>=2.2.0
 torchaudio>=2.2.0
 
-# ASR — Apple Silicon Metal GPU acceleration
+# ASR — Chinese-specialized SenseVoice (main) + mlx-whisper (wake word)
+funasr>=1.1.0
 mlx-whisper>=0.4.0
 
 # TTS — Fish Speech S2 Pro via MLX

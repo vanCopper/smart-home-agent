@@ -25,7 +25,7 @@ load_dotenv()
 HUB_URL        = os.getenv('HUB_URL',        'http://127.0.0.1:3300')
 OPENCLAW_SESSION = os.getenv('OPENCLAW_SESSION', 'agent:main:main')
 WAKE_WORDS     = [w.strip() for w in os.getenv('WAKE_WORDS', '小管家,hey home').split(',')]
-WHISPER_MODEL  = os.getenv('WHISPER_MODEL',  'mlx-community/whisper-large-v3-mlx')
+ASR_MODEL      = os.getenv('ASR_MODEL',      'iic/SenseVoiceSmall')
 WAKE_WHISPER   = os.getenv('WAKE_WHISPER_MODEL', 'mlx-community/whisper-small-mlx')
 TTS_MODEL      = os.getenv('TTS_MODEL',      'mlx-community/IndexTTS')
 REF_VOICE_PATH = os.getenv('REF_VOICE_PATH', '') or None
@@ -118,10 +118,9 @@ async def run_turn(
         await hub.voice_event('end')
         return False
 
-    # 3. ASR — normalize loudness before sending to Whisper.
-    # Mic input is often recorded at low levels (rms ~0.006); Whisper accuracy
-    # degrades noticeably on quiet audio. Scale to a target RMS of 0.05 so the
-    # model sees consistently loud speech regardless of hardware gain.
+    # 3. ASR — normalize loudness before sending to SenseVoice.
+    # Mic input is often recorded at low levels (rms ~0.006); normalizing to a
+    # target RMS gives the model consistently loud input regardless of mic gain.
     _TARGET_RMS = 0.05
     if rms > 0.001:
         audio_asr = audio * (_TARGET_RMS / rms)
@@ -129,17 +128,7 @@ async def run_turn(
     else:
         audio_asr = audio
     print('[main] transcribing…')
-    # initial_prompt: prime Whisper with domain vocabulary so it prefers the
-    # correct characters for common homophones (e.g. 首/上, 诗/时, 灯/等).
-    # temperature=0: greedy decoding — deterministic, fewer random substitutions.
-    text = await asr_mod.transcribe(
-        audio_asr, language='zh', temperature=0.0,
-        prompt=(
-            '以下是普通话对话，用户在和智能家居助手说话。'
-            '常用词：一首诗、唐诗、宋词、背诗、念诗、讲故事、'
-            '开灯、关灯、空调、窗帘、温度、天气、音乐、播放、暂停。'
-        ),
-    )
+    text = await asr_mod.transcribe(audio_asr)
     if not text or _looks_like_hallucination(text):
         if text:
             print(f'[main] dropping hallucinated transcript: {text!r}')
@@ -238,7 +227,7 @@ async def run_turn(
 
 async def main() -> None:
     print('[main] initialising models…')
-    asr_mod.init(WHISPER_MODEL, wake_model_repo=WAKE_WHISPER)
+    asr_mod.init(ASR_MODEL, wake_model_repo=WAKE_WHISPER)
     tts_mod.init(TTS_MODEL, ref_audio_path=REF_VOICE_PATH, ref_text=REF_VOICE_TEXT)
 
     hub      = HubClient(HUB_URL)
