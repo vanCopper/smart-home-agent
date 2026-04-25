@@ -28,7 +28,7 @@ def init(model_repo: str, wake_model_repo: str | None = None) -> None:
 
 
 def _run(audio: np.ndarray, repo: str, prompt: str | None = None,
-         language: str | None = None) -> str:
+         language: str | None = None, temperature: float = 0.0) -> str:
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
         path = f.name
     try:
@@ -39,6 +39,7 @@ def _run(audio: np.ndarray, repo: str, prompt: str | None = None,
             language=language,
             verbose=False,
             initial_prompt=prompt,
+            temperature=temperature,
         )
         return (result.get('text') or '').strip()
     finally:
@@ -46,10 +47,12 @@ def _run(audio: np.ndarray, repo: str, prompt: str | None = None,
 
 
 async def transcribe(audio: np.ndarray, prompt: str | None = None,
-                     language: str | None = None) -> str:
+                     language: str | None = None,
+                     temperature: float = 0.0) -> str:
     """Main-utterance transcription."""
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _run, audio, _main_repo, prompt, language)
+    return await loop.run_in_executor(
+        None, _run, audio, _main_repo, prompt, language, temperature)
 
 
 async def transcribe_wake(audio: np.ndarray, prompt: str | None = None,

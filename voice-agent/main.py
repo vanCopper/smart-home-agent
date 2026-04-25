@@ -129,11 +129,16 @@ async def run_turn(
     else:
         audio_asr = audio
     print('[main] transcribing…')
-    # initial_prompt: prime Whisper with Chinese conversational context so it
-    # prefers Mandarin vocabulary and punctuation over other languages.
+    # initial_prompt: prime Whisper with domain vocabulary so it prefers the
+    # correct characters for common homophones (e.g. 首/上, 诗/时, 灯/等).
+    # temperature=0: greedy decoding — deterministic, fewer random substitutions.
     text = await asr_mod.transcribe(
-        audio_asr, language='zh',
-        prompt='以下是普通话日常对话。用户正在和智能家居语音助手说话。',
+        audio_asr, language='zh', temperature=0.0,
+        prompt=(
+            '以下是普通话对话，用户在和智能家居助手说话。'
+            '常用词：一首诗、唐诗、宋词、背诗、念诗、讲故事、'
+            '开灯、关灯、空调、窗帘、温度、天气、音乐、播放、暂停。'
+        ),
     )
     if not text or _looks_like_hallucination(text):
         if text:
