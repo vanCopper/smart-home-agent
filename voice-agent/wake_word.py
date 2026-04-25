@@ -147,7 +147,14 @@ class WakeWordDetector:
                 burst_rms    = float(np.sqrt(np.mean(audio ** 2)))
                 burst_dur_ms = len(audio) / SAMPLE_RATE * 1000
                 print(f'[wake] burst {burst_dur_ms:.0f}ms rms={burst_rms:.4f}')
-                text = await asr_mod.transcribe(audio)
+                # Normalize loudness before ASR — same as main pipeline.
+                # SenseVoice accuracy degrades on low-level audio (rms ~0.008).
+                _TARGET_RMS = 0.05
+                if burst_rms > 0.001:
+                    audio_asr = np.clip(audio * (_TARGET_RMS / burst_rms), -1.0, 1.0)
+                else:
+                    audio_asr = audio
+                text = await asr_mod.transcribe(audio_asr)
                 if not text:
                     continue
                 match = self._match(text)
