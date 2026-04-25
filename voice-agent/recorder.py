@@ -5,36 +5,29 @@ import sounddevice as sd
 import torch
 
 SAMPLE_RATE = 16000
-CHUNK_MS    = 96       # silero-vad works best with 32/64/96ms chunks at 16kHz
-CHUNK_SIZE  = int(SAMPLE_RATE * CHUNK_MS / 1000)
-
-
-def _load_vad():
-    model, utils = torch.hub.load(
-        repo_or_dir='snakers4/silero-vad',
-        model='silero_vad',
-        force_reload=False,
-        trust_repo=True,
-    )
-    (get_speech_timestamps, _, _, _, _) = utils
-    return model, get_speech_timestamps
-
+# silero-vad requires exactly 512 samples per chunk at 16kHz (32ms)
+CHUNK_MS   = 32
+CHUNK_SIZE = 512
 
 _vad_model = None
-_get_ts = None
+
 
 def _vad():
-    global _vad_model, _get_ts
+    global _vad_model
     if _vad_model is None:
         print('[recorder] loading silero-vad…')
-        _vad_model, _get_ts = _load_vad()
+        _vad_model, _ = torch.hub.load(
+            repo_or_dir='snakers4/silero-vad',
+            model='silero_vad',
+            force_reload=False,
+            trust_repo=True,
+        )
     return _vad_model
 
 
 def _is_speech(chunk: np.ndarray) -> bool:
     t = torch.from_numpy(chunk.astype(np.float32))
-    conf = _vad().audio_forward(t, sr=SAMPLE_RATE)
-    return float(conf) > 0.5
+    return _vad()(t, SAMPLE_RATE).item() > 0.5
 
 
 class Recorder:
@@ -45,37 +38,82 @@ class Recorder:
         self._device = device
         _vad()  # warm up
 
-    async def record_until_silence(self) -> np.ndarray:
+    async def record_until_silence(
+        self,
+        initial_timeout_sec: float | None = None,
+    ) -> np.ndarray:
         """Record speech and stop after silence_sec of silence.
 
-        Returns a float32 mono array at SAMPLE_RATE.
+        Args:
+          initial_timeout_sec: if given and no speech is detected within this
+            many seconds of starting, return an empty array. None = wait
+            indefinitely for the first speech burst.
+
+        Returns a float32 mono array at SAMPLE_RATE (empty if timeout fired).
         """
         loop = asyncio.get_event_loop()
+        # Reset silero-vad RNN state so we don't carry false-positive momentum
+        # from a prior recording / TTS playback into this turn.
+        try:
+            _vad().reset_states()
+        except Exception:
+            pass
         frames: list[np.ndarray] = []
         done = asyncio.Event()
+        timed_out = False
 
         silence_chunks_needed = int(self._silence_sec * 1000 / CHUNK_MS)
         max_chunks = int(self._max_sec * 1000 / CHUNK_MS)
+        initial_chunks_max = (
+            int(initial_timeout_sec * 1000 / CHUNK_MS) if initial_timeout_sec else None
+        )
+        # Require this many consecutive "speech" chunks before declaring
+        # the user has actually started talking. Filters out single-frame
+        # VAD blips on TTS tail / fan noise / breathing.
+        START_DEBOUNCE = 5  # ~160ms at 32ms/chunk
         silence_count = 0
         total_chunks  = 0
+        speech_run    = 0      # consecutive speech chunks pre-start
         speech_started = False
+        # Small ring of pre-start frames so we don't clip the very first phoneme.
+        pre_buffer: list[np.ndarray] = []
 
         def cb(indata: np.ndarray, *_):
-            nonlocal silence_count, total_chunks, speech_started
+            nonlocal silence_count, total_chunks, speech_started, speech_run, timed_out
             chunk = indata[:, 0].copy()
             is_sp = _is_speech(chunk)
 
-            if is_sp:
-                speech_started = True
-                silence_count = 0
-            elif speech_started:
-                silence_count += 1
+            if not speech_started:
+                if is_sp:
+                    speech_run += 1
+                else:
+                    speech_run = 0
+                # Keep the last ~START_DEBOUNCE frames so the kept audio
+                # includes the leading edge of the utterance.
+                pre_buffer.append(chunk)
+                if len(pre_buffer) > START_DEBOUNCE:
+                    pre_buffer.pop(0)
+                if speech_run >= START_DEBOUNCE:
+                    speech_started = True
+                    frames.extend(pre_buffer)
+                    pre_buffer.clear()
+                    silence_count = 0
+            else:
+                if is_sp:
+                    silence_count = 0
+                else:
+                    silence_count += 1
+                frames.append(chunk)
 
-            frames.append(chunk)
             total_chunks += 1
 
             if (speech_started and silence_count >= silence_chunks_needed) \
                     or total_chunks >= max_chunks:
+                loop.call_soon_threadsafe(done.set)
+            elif (not speech_started
+                  and initial_chunks_max is not None
+                  and total_chunks >= initial_chunks_max):
+                timed_out = True
                 loop.call_soon_threadsafe(done.set)
 
         with sd.InputStream(
@@ -88,5 +126,6 @@ class Recorder:
         ):
             await done.wait()
 
-        audio = np.concatenate(frames) if frames else np.zeros(SAMPLE_RATE, dtype=np.float32)
-        return audio
+        if timed_out or not frames:
+            return np.zeros(0, dtype=np.float32)
+        return np.concatenate(frames)

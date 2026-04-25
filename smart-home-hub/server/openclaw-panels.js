@@ -203,7 +203,7 @@ function applyToolPatch(patch) {
 // 已经订阅过的 sessionKey，避免重复订阅
 const subscribedKeys = new Set();
 
-async function subscribeSession(sessionKey, { tag = 'init' } = {}) {
+export async function subscribeSession(sessionKey, { tag = 'init' } = {}) {
   if (!sessionKey || subscribedKeys.has(sessionKey)) return;
   subscribedKeys.add(sessionKey);
 

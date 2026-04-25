@@ -33,9 +33,11 @@ class HubClient:
                         ev = json.loads(line[6:])
                     except json.JSONDecodeError:
                         continue
-                    if ev.get('type') == 'delta':
+                    t = ev.get('type')
+                    if t == 'delta':
                         yield ev.get('text', '')
-                    elif ev.get('type') in ('done', 'error'):
+                    elif t in ('complete', 'done', 'error'):
+                        # complete = full text already covered by deltas; just stop
                         return
         except Exception as e:
             print(f'[hub] send_to_llm error: {e}')

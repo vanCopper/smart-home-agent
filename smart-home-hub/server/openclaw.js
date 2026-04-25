@@ -169,6 +169,7 @@ function onMessage(buf) {
           signedAt,
           nonce,
         },
+        auth: { token: TOKEN },
       },
     }));
     return;
