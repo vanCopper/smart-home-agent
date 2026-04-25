@@ -179,18 +179,8 @@ app.post('/internal/voice/send', async (req, res) => {
   // subscribeSession is idempotent (tracks a Set internally).
   await claw.subscribeSession(sessionKey, { tag: 'voice' });
 
-  // Try to ensure the session exists (no-op if already exists).
   try {
-    const cr = await openclaw.rpc('sessions.create', { key: sessionKey }, 5000);
-    console.log(`[voice/send] sessions.create → ${JSON.stringify(cr)?.slice(0, 200)}`);
-  } catch (e) {
-    // "already exists" or unsupported — both fine, proceed
-    console.log(`[voice/send] sessions.create skip: ${e.message}`);
-  }
-
-  try {
-    const sendResult = await openclaw.rpc('sessions.send', { key: sessionKey, message: text });
-    console.log(`[voice/send] sessions.send → ${JSON.stringify(sendResult)?.slice(0, 200)}`);
+    await openclaw.rpc('sessions.send', { key: sessionKey, message: text });
   } catch (e) {
     console.error(`[voice/send] sessions.send error: ${e.message}`);
     sse({ type: 'error', message: e.message });

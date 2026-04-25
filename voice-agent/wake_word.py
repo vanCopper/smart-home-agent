@@ -23,7 +23,7 @@ SAMPLE_RATE = 16000
 CHUNK_SIZE  = 512          # silero-vad requirement at 16kHz
 CHUNK_MS    = 32
 
-MIN_SPEECH_MS = 300         # ignore bursts shorter than this
+MIN_SPEECH_MS = 600         # ignore bursts shorter than this (cough/sneeze ~100-200ms; 4-syllable wake word needs ~600ms)
 MAX_SPEECH_MS = 3000        # cap each burst length
 SILENCE_END_MS = 400        # silence needed to close a burst
 
