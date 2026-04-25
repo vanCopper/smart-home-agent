@@ -139,6 +139,13 @@ class WakeWordDetector:
         try:
             while not self._detected.is_set():
                 audio = await ready_q.get()
+                # Energy gate: laughs, coughs, door slams etc. pass VAD but
+                # have low RMS compared to intentional speech directed at the mic.
+                # Skip the Whisper call entirely if the burst is too quiet.
+                burst_rms = float(np.sqrt(np.mean(audio ** 2)))
+                if burst_rms < 0.008:
+                    print(f'[wake] burst too quiet (rms={burst_rms:.4f}), skipping')
+                    continue
                 text = await asr_mod.transcribe_wake(audio, prompt=self._prompt, language='zh')
                 if not text:
                     continue
