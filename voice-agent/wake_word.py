@@ -23,7 +23,9 @@ SAMPLE_RATE = 16000
 CHUNK_SIZE  = 512          # silero-vad requirement at 16kHz
 CHUNK_MS    = 32
 
-MIN_SPEECH_MS = 600         # ignore bursts shorter than this (cough/sneeze ~100-200ms; 4-syllable wake word needs ~600ms)
+MIN_SPEECH_MS  = 600        # ignore bursts shorter than this (total incl. trailing silence)
+MIN_VOICED_MS  = 320        # minimum *actual* VAD-positive frames within a burst
+                            # cough/laugh: ~3-6 voiced frames; '小新': ~10+ frames
 MAX_SPEECH_MS = 3000        # cap each burst length
 SILENCE_END_MS = 400        # silence needed to close a burst
 
@@ -93,18 +95,30 @@ class WakeWordDetector:
         import time as _time
         start_at = _time.monotonic()
 
-        silence_chunks_needed = SILENCE_END_MS // CHUNK_MS
-        min_speech_chunks     = MIN_SPEECH_MS // CHUNK_MS
-        max_speech_chunks     = MAX_SPEECH_MS // CHUNK_MS
+        silence_chunks_needed = SILENCE_END_MS  // CHUNK_MS
+        min_speech_chunks     = MIN_SPEECH_MS   // CHUNK_MS
+        min_voiced_chunks     = MIN_VOICED_MS   // CHUNK_MS
+        max_speech_chunks     = MAX_SPEECH_MS   // CHUNK_MS
 
         buf: list[np.ndarray] = []
-        silence_run = 0
-        in_speech   = False
+        silence_run  = 0
+        in_speech    = False
+        voiced_count = 0   # VAD-positive frames accumulated in current burst
         # queue of audio blobs ready for Whisper (processed on the asyncio loop)
         ready_q: asyncio.Queue[np.ndarray] = asyncio.Queue()
 
+        def _emit_if_ok():
+            nonlocal buf, in_speech, silence_run, voiced_count
+            if len(buf) >= min_speech_chunks and voiced_count >= min_voiced_chunks:
+                audio = np.concatenate(buf).astype(np.float32)
+                loop.call_soon_threadsafe(ready_q.put_nowait, audio)
+            buf          = []
+            in_speech    = False
+            silence_run  = 0
+            voiced_count = 0
+
         def cb(indata: np.ndarray, frames, time, status):
-            nonlocal silence_run, in_speech, buf
+            nonlocal silence_run, in_speech, buf, voiced_count
             if _time.monotonic() - start_at < cooldown_sec:
                 return
             chunk = indata[:, 0].copy()
@@ -112,24 +126,16 @@ class WakeWordDetector:
 
             if is_sp:
                 buf.append(chunk)
-                silence_run = 0
-                in_speech = True
+                voiced_count += 1
+                silence_run   = 0
+                in_speech     = True
                 if len(buf) >= max_speech_chunks:
-                    audio = np.concatenate(buf).astype(np.float32)
-                    buf = []
-                    in_speech = False
-                    silence_run = 0
-                    loop.call_soon_threadsafe(ready_q.put_nowait, audio)
+                    _emit_if_ok()
             elif in_speech:
                 buf.append(chunk)
                 silence_run += 1
                 if silence_run >= silence_chunks_needed:
-                    if len(buf) >= min_speech_chunks:
-                        audio = np.concatenate(buf).astype(np.float32)
-                        loop.call_soon_threadsafe(ready_q.put_nowait, audio)
-                    buf = []
-                    in_speech = False
-                    silence_run = 0
+                    _emit_if_ok()
 
         stream = sd.InputStream(
             samplerate=SAMPLE_RATE, channels=1, dtype='float32',
@@ -139,13 +145,9 @@ class WakeWordDetector:
         try:
             while not self._detected.is_set():
                 audio = await ready_q.get()
-                # Energy gate: laughs, coughs, door slams etc. pass VAD but
-                # have low RMS compared to intentional speech directed at the mic.
-                # Skip the Whisper call entirely if the burst is too quiet.
-                burst_rms = float(np.sqrt(np.mean(audio ** 2)))
-                if burst_rms < 0.008:
-                    print(f'[wake] burst too quiet (rms={burst_rms:.4f}), skipping')
-                    continue
+                burst_rms    = float(np.sqrt(np.mean(audio ** 2)))
+                burst_dur_ms = len(audio) / SAMPLE_RATE * 1000
+                print(f'[wake] burst {burst_dur_ms:.0f}ms rms={burst_rms:.4f}')
                 text = await asr_mod.transcribe_wake(audio, prompt=self._prompt, language='zh')
                 if not text:
                     continue
