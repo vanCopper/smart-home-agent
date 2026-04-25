@@ -15,7 +15,7 @@ import numpy as np
 import sounddevice as sd
 import torch
 
-from pypinyin import lazy_pinyin, Style
+from pypinyin import lazy_pinyin, pinyin as _pinyin_list, Style
 
 import asr as asr_mod
 
@@ -55,29 +55,53 @@ def _normalize(s: str) -> str:
 
 
 def _to_pinyin(s: str) -> str:
-    """Convert to concatenated pinyin (no tones). 'xiaoxin' etc."""
+    """Concatenated pinyin without tones. '小新' → 'xiaoxin'"""
     return ''.join(lazy_pinyin(s, style=Style.NORMAL))
+
+
+def _to_syllables(s: str) -> list[str]:
+    """Syllable-level pinyin list. '小新' → ['xiao', 'xin']"""
+    return [item[0] for item in _pinyin_list(s, style=Style.NORMAL)]
+
+
+def _syllables_match(needle: list[str], haystack: list[str]) -> bool:
+    """True if every syllable in needle appears in haystack in order (subsequence).
+
+    Handles cases where ASR adds extra words around the wake word, e.g.:
+      needle=['xiao','xin']  haystack=['wo','shi','xiao','xin'] → True
+    """
+    it = iter(haystack)
+    return all(syl in it for syl in needle)
 
 
 class WakeWordDetector:
     def __init__(self, wake_words: list[str], model_path: str | None = None):
-        self._orig_words = [w.strip() for w in wake_words if w.strip()]
-        # Match against both normalized characters and pinyin (robust to homophones)
-        self._words_norm = [_normalize(w) for w in self._orig_words]
-        self._words_py   = [_to_pinyin(w) for w in self._orig_words]
-        # SenseVoice handles Chinese short bursts directly — no prompt needed.
+        self._orig_words  = [w.strip() for w in wake_words if w.strip()]
+        self._words_norm  = [_normalize(w)    for w in self._orig_words]
+        self._words_py    = [_to_pinyin(w)    for w in self._orig_words]
+        self._words_syls  = [_to_syllables(w) for w in self._orig_words]
         self._detected = asyncio.Event()
         _vad()  # warm up
-        print(f'[wake] VAD+Whisper  wake_words={self._orig_words}  pinyin={self._words_py}')
+        print(f'[wake] words={self._orig_words}  syllables={self._words_syls}')
 
     def _match(self, transcript: str) -> str | None:
-        norm = _normalize(transcript)
-        py   = _to_pinyin(transcript)
-        for orig, w, wpy in zip(self._orig_words, self._words_norm, self._words_py):
+        """Three-tier match (most → least strict):
+          1. Exact character substring   '小新' in '小新你好'
+          2. Concatenated pinyin substr   'xiaoxin' in 'xiaoxinni hao'  (homophones)
+          3. Syllable subsequence         ['xiao','xin'] ⊆ ['xiao','xin','ni','hao']
+             also handles partial mis-recognition of the wake word
+        """
+        norm      = _normalize(transcript)
+        py        = _to_pinyin(transcript)
+        trans_syl = _to_syllables(transcript)
+        for orig, w, wpy, wsyl in zip(
+                self._orig_words, self._words_norm, self._words_py, self._words_syls):
             if w and w in norm:
                 return orig
             if wpy and wpy in py:
-                return orig + f'(~{wpy})'
+                return f'{orig}(~py)'
+            if wsyl and _syllables_match(wsyl, trans_syl):
+                return f'{orig}(~syl)'
         return None
 
     async def wait(self, device: int | None = None, cooldown_sec: float = 3.0) -> None:
