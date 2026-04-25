@@ -120,15 +120,19 @@ app.post('/internal/voice/send', async (req, res) => {
 
   const sse = (obj) => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
 
-  // Debug: dump all events during this SSE request (first 40) to find real event shape
-  let _dbgCount = 0;
-  const unsubDbg = openclaw.onAny((event, payload) => {
-    if (event === 'connect.challenge') return;
-    if (_dbgCount++ < 40) {
-      const d = JSON.stringify(payload);
-      console.log(`[voice/send dbg] event=${event} ${d?.length > 300 ? d.slice(0,300)+'…' : d}`);
-    }
-  });
+  let deltaCount = 0;
+  let lifecycleEndTimer = null;
+
+  // When lifecycle ends with 0 tokens, the agent likely just finished a tool-call
+  // run and may start a second run to generate the text response. Wait up to 3s
+  // before declaring done; cancel the wait if new tokens arrive.
+  function scheduleLifecycleDone() {
+    if (lifecycleEndTimer) clearTimeout(lifecycleEndTimer);
+    lifecycleEndTimer = setTimeout(() => {
+      sse({ type: 'done' });
+      cleanup();
+    }, deltaCount > 0 ? 0 : 3000);
+  }
 
   const unsubAgent = openclaw.on('agent', (payload) => {
     if (payload?.sessionKey && payload.sessionKey !== sessionKey) return;
@@ -136,12 +140,15 @@ app.post('/internal/voice/send', async (req, res) => {
     const data   = payload?.data || {};
 
     if (stream === 'assistant') {
-      // delta: data.delta is the incremental chunk; data.text is the cumulative text
       const chunk = data.delta ?? '';
-      if (chunk) sse({ type: 'delta', text: chunk });
+      if (chunk) {
+        deltaCount++;
+        // Cancel any pending lifecycle-end grace timer — more tokens are arriving
+        if (lifecycleEndTimer) { clearTimeout(lifecycleEndTimer); lifecycleEndTimer = null; }
+        sse({ type: 'delta', text: chunk });
+      }
     } else if (stream === 'lifecycle' && data.phase === 'end') {
-      sse({ type: 'done' });
-      cleanup();
+      scheduleLifecycleDone();
     }
   });
 
@@ -167,7 +174,7 @@ app.post('/internal/voice/send', async (req, res) => {
     if (done) return;
     done = true;
     clearTimeout(timeout);
-    unsubDbg();
+    if (lifecycleEndTimer) clearTimeout(lifecycleEndTimer);
     unsubAgent();
     unsubMsg();
     if (!res.writableEnded) res.end();
