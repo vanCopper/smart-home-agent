@@ -35,7 +35,7 @@ VAD_SILENCE    = float(os.getenv('VAD_SILENCE_SEC', '0.8'))
 MAX_RECORD     = float(os.getenv('MAX_RECORD_SEC',  '12'))
 # After a turn finishes, stay listening (no wake word required) for this
 # long; if no speech, fall back to wake-word state.
-FOLLOWUP_SEC   = float(os.getenv('FOLLOWUP_SEC',   '8'))
+FOLLOWUP_SEC   = float(os.getenv('FOLLOWUP_SEC',   '5'))
 
 import re as _re_main
 import asr as asr_mod
@@ -118,9 +118,23 @@ async def run_turn(
         await hub.voice_event('end')
         return False
 
-    # 3. ASR
+    # 3. ASR — normalize loudness before sending to Whisper.
+    # Mic input is often recorded at low levels (rms ~0.006); Whisper accuracy
+    # degrades noticeably on quiet audio. Scale to a target RMS of 0.05 so the
+    # model sees consistently loud speech regardless of hardware gain.
+    _TARGET_RMS = 0.05
+    if rms > 0.001:
+        audio_asr = audio * (_TARGET_RMS / rms)
+        audio_asr = np.clip(audio_asr, -1.0, 1.0)
+    else:
+        audio_asr = audio
     print('[main] transcribing…')
-    text = await asr_mod.transcribe(audio, language='zh')
+    # initial_prompt: prime Whisper with Chinese conversational context so it
+    # prefers Mandarin vocabulary and punctuation over other languages.
+    text = await asr_mod.transcribe(
+        audio_asr, language='zh',
+        prompt='以下是普通话日常对话。用户正在和智能家居语音助手说话。',
+    )
     if not text or _looks_like_hallucination(text):
         if text:
             print(f'[main] dropping hallucinated transcript: {text!r}')
