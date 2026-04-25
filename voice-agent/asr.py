@@ -46,14 +46,13 @@ def _load_sense(model_repo: str) -> None:
 
 def _run_sense(audio: np.ndarray) -> str:
     """Run SenseVoice inference on a float32 16 kHz mono array."""
-    # FunASR AutoModel.generate() accepts (numpy_array, sample_rate) tuple
-    # or a file path. Use tuple form to avoid disk I/O.
     results = _sense_model.generate(
-        input=(audio, 16000),
+        input=audio,
         cache={},
         language='zh',
         use_itn=True,       # inverse text normalization: digits, punctuation
         batch_size_s=60,
+        fs=16000,
     )
     if not results:
         return ''
@@ -89,23 +88,20 @@ def _run_whisper(audio: np.ndarray, repo: str,
 # ── Public API ───────────────────────────────────────────────────────────────
 
 def init(model_repo: str, wake_model_repo: str | None = None) -> None:
-    """Load and warm up both models.
+    """Load and warm up SenseVoice (used for both main ASR and wake word).
 
-    model_repo      — SenseVoice model (e.g. 'iic/SenseVoiceSmall')
-    wake_model_repo — mlx-whisper repo for wake-word detection
+    wake_model_repo is accepted for API compatibility but no longer used —
+    wake word detection now uses SenseVoice instead of whisper-small.
     """
     global _wake_repo
     _wake_repo = wake_model_repo or 'mlx-community/whisper-small-mlx'
 
-    # Load SenseVoice + warm-up pass
+    # Load SenseVoice + warm-up pass (handles both main and wake detection)
     _load_sense(model_repo)
     silent = np.zeros(8000, dtype=np.float32)
     _run_sense(silent)
 
-    # Warm up wake-word whisper
-    _run_whisper(silent, _wake_repo)
-
-    print(f'[asr] ready  main=SenseVoice({model_repo})  wake={_wake_repo}')
+    print(f'[asr] ready  SenseVoice({model_repo})  (wake also uses SenseVoice)')
 
 
 async def transcribe(audio: np.ndarray,

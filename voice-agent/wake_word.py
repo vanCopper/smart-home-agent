@@ -65,11 +65,7 @@ class WakeWordDetector:
         # Match against both normalized characters and pinyin (robust to homophones)
         self._words_norm = [_normalize(w) for w in self._orig_words]
         self._words_py   = [_to_pinyin(w) for w in self._orig_words]
-        # NOTE: do NOT put the wake words themselves in the prompt.
-        # Whisper will "continue" the prompt on short/noisy audio, causing it
-        # to hallucinate exactly the wake words for every cough or laugh.
-        # A neutral context prompt is safe; the _match() check handles recognition.
-        self._prompt = '以下是普通话对话。'
+        # SenseVoice handles Chinese short bursts directly — no prompt needed.
         self._detected = asyncio.Event()
         _vad()  # warm up
         print(f'[wake] VAD+Whisper  wake_words={self._orig_words}  pinyin={self._words_py}')
@@ -151,7 +147,7 @@ class WakeWordDetector:
                 burst_rms    = float(np.sqrt(np.mean(audio ** 2)))
                 burst_dur_ms = len(audio) / SAMPLE_RATE * 1000
                 print(f'[wake] burst {burst_dur_ms:.0f}ms rms={burst_rms:.4f}')
-                text = await asr_mod.transcribe_wake(audio, prompt=self._prompt, language='zh')
+                text = await asr_mod.transcribe(audio)
                 if not text:
                     continue
                 match = self._match(text)
