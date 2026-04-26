@@ -140,11 +140,15 @@ async def run_turn(
     print(f'[main] said: {text}')
     await hub.voice_event('said', text)
 
-    # 4. Stream LLM reply with pipelined TTS:
-    #    LLM tokens → SentenceChunker → synth chain (sequential synth) →
-    #    play queue → playback loop (sequential play).
-    #    Decoupling synth from playback lets sentence N+1 synthesize while
-    #    sentence N is still being played, eliminating the inter-sentence gap.
+    # 4. Stream LLM reply with pipelined streaming TTS:
+    #    LLM tokens → SentenceChunker → synth chain (streaming synth) →
+    #    play queue (individual chunks) → playback loop.
+    #
+    #    CosyVoice2 streams audio chunks as it synthesizes, so the first chunk
+    #    of sentence N arrives ~300ms after synthesis starts — the player loop
+    #    begins playing immediately instead of waiting for the full sentence.
+    #    Sentence N+1 synthesis starts as soon as N's last chunk is queued,
+    #    overlapping with N's playback (same pipeline as before, finer grained).
     chunker = SentenceChunker()
     full_reply: list[str] = []
     play_queue: asyncio.Queue = asyncio.Queue()
@@ -157,7 +161,8 @@ async def run_turn(
                 return
             audio_arr, label = item
             try:
-                print(f'[main] playing: {label!r} samples={len(audio_arr)}')
+                if label is not None:
+                    print(f'[main] playing: {label!r}')
                 await player.play(audio_arr)
             except Exception as e:
                 print(f'[main] playback error: {e}')
@@ -166,21 +171,23 @@ async def run_turn(
 
     synth_chain: asyncio.Task | None = None
 
-    async def _synth_and_enqueue(sentence: str, prev: asyncio.Task | None):
-        # Wait for the prior synth to finish so audio lands on the play queue
-        # in order (TTS executor itself is single-threaded too).
+    async def _synth_stream_and_enqueue(sentence: str, prev: asyncio.Task | None):
+        # Wait for previous sentence's chunks to all be on the queue before
+        # starting, so chunks never interleave on the shared play_queue.
         if prev is not None:
             try:
                 await prev
             except Exception:
                 pass
-        print(f'[main] TTS synth start: {sentence!r}')
+        print(f'[main] TTS stream: {sentence!r}')
+        first_chunk = True
         try:
-            audio_arr = await tts_mod.synthesize(sentence)
+            async for chunk in tts_mod.synthesize_stream(sentence):
+                label = sentence if first_chunk else None
+                first_chunk = False
+                await play_queue.put((chunk, label))
         except Exception as e:
             print(f'[main] TTS error: {e}')
-            return
-        await play_queue.put((audio_arr, sentence))
 
     async def flush_sentence(sentence: str) -> None:
         nonlocal synth_chain
@@ -191,10 +198,8 @@ async def run_turn(
         print(f'[main] sentence: {sentence!r}')
         full_reply.append(sentence)
         await hub.voice_event('reply', ' '.join(full_reply))
-        # Schedule synth immediately — it runs concurrently with any in-flight
-        # playback. Order is preserved by chaining each new synth on the prev.
         prev = synth_chain
-        synth_chain = asyncio.create_task(_synth_and_enqueue(sentence, prev))
+        synth_chain = asyncio.create_task(_synth_stream_and_enqueue(sentence, prev))
 
     print('[main] sending to LLM…')
     await player.play(send_beep)
