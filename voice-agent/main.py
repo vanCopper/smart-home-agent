@@ -1,3 +1,4 @@
+#!/usr/bin/env python3 -u
 """Smart Home Voice Agent — main pipeline.
 
 Pipeline per turn:
@@ -17,8 +18,12 @@ Usage:
 """
 import asyncio
 import os
+import sys
 import numpy as np
 from dotenv import load_dotenv
+
+# Force line-buffered stdout so log output appears immediately when piped to a file
+sys.stdout.reconfigure(line_buffering=True)
 
 load_dotenv()
 

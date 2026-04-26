@@ -21,13 +21,14 @@ import os
 import re
 import numpy as np
 import soundfile as sf
+import torch
 
 SAMPLE_RATE = 22050   # CosyVoice2 output sample rate
 
-_model     = None
-_ref_audio = None     # torch.Tensor [1, T] at 16kHz
-_ref_text  = ''
-_inited    = False
+_model          = None
+_ref_audio_path = None  # absolute path to reference wav (passed to CosyVoice2 directly)
+_ref_text       = ''
+_inited         = False
 
 _CLEAN_RE = re.compile(
     r'[^\u4e00-\u9fff'
@@ -42,10 +43,66 @@ def _sanitize(text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
+class _OnnxEstimator(torch.nn.Module):
+    """Drop-in replacement for the PyTorch flow-decoder estimator.
+
+    Runs the ONNX model via onnxruntime CoreML EP (Apple Silicon) or CPU EP.
+    Must be a torch.nn.Module so CosyVoice2 can assign it as a submodule.
+    """
+    def __init__(self, onnx_path: str):
+        super().__init__()
+        import onnxruntime as ort
+        # Use CPU EP only — CoreML has too much per-call overhead for small batches
+        ep_list = ['CPUExecutionProvider']
+        # Store as plain attribute (not nn.Parameter) to avoid torch registration
+        object.__setattr__(self, '_sess', ort.InferenceSession(onnx_path, providers=ep_list))
+        object.__setattr__(self, '_ep', ep_list[0])
+        print(f'[tts] onnx estimator loaded  ep={ep_list[0]}')
+
+    def forward(self, x, mask, mu, t, spks, cond, **kwargs):
+        def to_np(v):
+            v = v.detach().float()
+            return v.cpu().numpy() if v.device.type != 'cpu' else v.numpy()
+        out = object.__getattribute__(self, '_sess').run(
+            ['estimator_out'],
+            {'x': to_np(x), 'mask': to_np(mask), 'mu': to_np(mu),
+             't': to_np(t), 'spks': to_np(spks), 'cond': to_np(cond)}
+        )[0]
+        return torch.from_numpy(out).to(x.device)
+
+
+def _try_install_onnx_estimator(cosyvoice_model, model_repo: str) -> None:
+    """Try to replace the PyTorch flow estimator with a faster onnxruntime one."""
+    import importlib, os
+    try:
+        import onnxruntime  # noqa: F401
+    except ImportError:
+        print('[tts] onnxruntime not found, skipping ONNX estimator')
+        return
+
+    # Locate onnx model — modelscope caches to ~/.cache/modelscope/hub/<repo>
+    repo_dir = os.path.join(
+        os.path.expanduser('~/.cache/modelscope/hub'),
+        model_repo.replace('/', os.sep),
+    )
+    onnx_path = os.path.join(repo_dir, 'flow.decoder.estimator.fp32.onnx')
+    if not os.path.exists(onnx_path):
+        print(f'[tts] ONNX estimator not found at {onnx_path}, using PyTorch')
+        return
+
+    try:
+        onnx_est = _OnnxEstimator(onnx_path)
+        # The estimator lives at model.model.flow.decoder.estimator
+        cosyvoice_model.model.flow.decoder.estimator = onnx_est
+        print('[tts] ONNX estimator installed')
+    except Exception as e:
+        print(f'[tts] ONNX estimator install failed ({e}), using PyTorch')
+
+
 def init(model_repo: str,
          ref_audio_path: str | None = None,
          ref_text: str | None = None) -> None:
-    global _model, _ref_audio, _ref_text, _inited
+    global _model, _ref_audio_path, _ref_text, _inited
 
     if not ref_audio_path or not os.path.exists(ref_audio_path):
         raise RuntimeError(
@@ -58,23 +115,20 @@ def init(model_repo: str,
     from cosyvoice.cli.cosyvoice import CosyVoice2 as _CV2
     _model = _CV2(model_repo, load_jit=False, load_trt=False)
 
-    # Load reference audio; CosyVoice2 prompt expects 16 kHz mono float32 tensor.
-    audio_np, sr = sf.read(ref_audio_path)
-    if audio_np.ndim > 1:
-        audio_np = audio_np.mean(axis=1)
-    audio_np = audio_np.astype(np.float32)
-    if sr != 16000:
-        import torch, torchaudio
-        t = torch.from_numpy(audio_np).unsqueeze(0)
-        t = torchaudio.functional.resample(t, sr, 16000)
-        audio_np = t.squeeze(0).numpy()
+    # ONNX estimator benchmarked: PyTorch outperforms both ONNX-CPU and
+    # ONNX-CoreML on Apple Silicon for this model — leave disabled.
+    # _try_install_onnx_estimator(_model, model_repo)
 
-    import torch
-    _ref_audio = torch.from_numpy(audio_np).unsqueeze(0)
-    _ref_text  = ref_text
-    _inited    = True
-    print(f'[tts] CosyVoice2 ready  '
-          f'ref_dur={audio_np.shape[0]/16000:.2f}s  model={model_repo}')
+    # Store the absolute path — CosyVoice2 loads it internally via load_wav()
+    # which handles resampling to both 16 kHz (speaker embedding) and 24 kHz (feat).
+    _ref_audio_path = os.path.abspath(ref_audio_path)
+    _ref_text       = ref_text
+    _inited         = True
+
+    # Print duration from file header
+    audio_np, sr = sf.read(_ref_audio_path)
+    dur = len(audio_np) / sr
+    print(f'[tts] CosyVoice2 ready  ref_dur={dur:.2f}s  model={model_repo}')
 
 
 def _iter_chunks(text: str):
@@ -84,7 +138,7 @@ def _iter_chunks(text: str):
     first = True
     total = 0
     for chunk in _model.inference_zero_shot(
-        text, _ref_text, _ref_audio, stream=True
+        text, _ref_text, _ref_audio_path, stream=True
     ):
         audio = chunk['tts_speech']
         if hasattr(audio, 'numpy'):
