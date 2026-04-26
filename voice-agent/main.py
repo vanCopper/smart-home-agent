@@ -175,6 +175,12 @@ async def run_turn(
     player_task = asyncio.create_task(player_loop())
 
     synth_chain: asyncio.Task | None = None
+    # Buffer short chunks so CosyVoice2 always receives text long enough
+    # relative to the reference prompt (avoids multilingual hallucinations).
+    # Flush when accumulated text reaches MIN_TTS_CHARS or a hard sentence
+    # boundary arrives (flush_sentence called with force=True).
+    _MIN_TTS_CHARS = 16
+    _tts_buf: list[str] = []
 
     async def _synth_stream_and_enqueue(sentence: str, prev: asyncio.Task | None):
         # Wait for previous sentence's chunks to all be on the queue before
@@ -194,7 +200,13 @@ async def run_turn(
         except Exception as e:
             print(f'[main] TTS error: {e}')
 
-    async def flush_sentence(sentence: str) -> None:
+    async def _dispatch_tts(text: str) -> None:
+        """Start a TTS task for text, chained after the previous one."""
+        nonlocal synth_chain
+        prev = synth_chain
+        synth_chain = asyncio.create_task(_synth_stream_and_enqueue(text, prev))
+
+    async def flush_sentence(sentence: str, *, force: bool = False) -> None:
         nonlocal synth_chain
         import re as _re
         sentence = _re.sub(r'(?i)\s*audio\s*reply\s*', '', sentence).strip()
@@ -203,9 +215,11 @@ async def run_turn(
         print(f'[main] sentence: {sentence!r}')
         full_reply.append(sentence)
         await hub.voice_event('reply', ' '.join(full_reply))
-        prev = synth_chain
-        synth_chain = asyncio.create_task(_synth_stream_and_enqueue(sentence, prev))
-
+        _tts_buf.append(sentence)
+        combined = ''.join(_tts_buf)
+        if force or len(combined) >= _MIN_TTS_CHARS:
+            _tts_buf.clear()
+            await _dispatch_tts(combined)
     print('[main] sending to LLM…')
     await player.play(send_beep)
     token_count = 0
@@ -219,7 +233,11 @@ async def run_turn(
 
     leftover = chunker.flush()
     if leftover:
-        await flush_sentence(leftover)
+        await flush_sentence(leftover, force=True)
+    elif _tts_buf:
+        # Flush any remaining buffered text even if below MIN_TTS_CHARS
+        await _dispatch_tts(''.join(_tts_buf))
+        _tts_buf.clear()
 
     # Wait for all synth to finish, then stop the player loop after queue drains
     if synth_chain:
@@ -229,6 +247,9 @@ async def run_turn(
             pass
     await play_queue.put(_STOP)
     await player_task
+
+    # Drain the output stream so it plays to the end before we re-open it
+    player.stop()
 
     await hub.voice_event('end')
     print('[main] turn complete')

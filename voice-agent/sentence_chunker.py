@@ -13,9 +13,9 @@ Chunking strategy (three tiers):
 _HARD_BOUNDARIES  = frozenset('。！？\n.!?')
 _SOFT_BOUNDARIES  = frozenset('，,；：:')
 
-_MIN_LEN          = 4    # chars: ignore boundaries in very short fragments
-_SOFT_FLUSH_CHARS = 15   # flush on soft boundary once buffer reaches this
-_FORCE_FLUSH_CHARS = 40  # flush unconditionally once buffer reaches this
+_MIN_LEN          = 8    # chars: ignore boundaries in very short fragments
+_SOFT_FLUSH_CHARS = 20   # flush on soft boundary once buffer reaches this
+_FORCE_FLUSH_CHARS = 60  # flush unconditionally once buffer reaches this
 
 
 class SentenceChunker:
